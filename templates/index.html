@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PlagiaShield — Enterprise Text Intelligence & AI Forensics Suite</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+</head>
+<body>
+    <div class="app-container">
+        <header class="header">
+            <div class="logo">
+                <i class="fas fa-shield-halved"></i>
+                <span>Plagia<span class="highlight">Shield</span></span>
+            </div>
+            <div class="header-tagline">Deep Analysis &middot; AI Forensics &middot; Content Intelligence</div>
+            <div class="header-actions">
+                <button class="history-toggle" id="history-toggle" onclick="toggleHistory()" title="History">
+                    <i class="fas fa-clock-rotate"></i> History
+                </button>
+                <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()" title="Toggle theme" aria-label="Toggle theme">
+                    <i class="fas fa-moon"></i>
+                </button>
+            </div>
+        </header>
+
+        <main class="main-content">
+            <div class="hero-banner">
+                <div class="hero-icon"><i class="fas fa-brain"></i></div>
+                <h1 class="hero-title">Uncover the Truth in Every Word</h1>
+                <p class="hero-desc">Advanced multi-engine analysis platform that detects AI-generated content, traces plagiarism, perfects grammar, reimagines text, and reveals your writing fingerprint — all in one shot.</p>
+                <div class="hero-badges">
+                    <span class="hero-badge"><i class="fas fa-bolt"></i> 12+ Analysis Engines</span>
+                    <span class="hero-badge"><i class="fas fa-microchip"></i> Real-time AI Detection</span>
+                    <span class="hero-badge"><i class="fas fa-shield"></i> Anti-Detection Bypass</span>
+                </div>
+            </div>
+
+            <div class="input-section">
+                <div class="input-header">
+                    <label for="text-input"><i class="fas fa-pen"></i> Input Your Content</label>
+                </div>
+                <div class="upload-zone" id="upload-zone">
+                    <i class="fas fa-cloud-upload-alt"></i>
+                    <p>Drop a file here or click to browse</p>
+                    <div class="upload-hint">Supports .txt, .docx, .pdf</div>
+                    <input type="file" id="file-input" accept=".txt,.docx,.pdf" onchange="handleFileUpload(event)">
+                </div>
+                <div class="textarea-wrapper">
+                    <textarea id="text-input" placeholder="Paste or type your text here..." maxlength="40000"></textarea>
+                    <div class="textarea-progress">
+                        <div class="textarea-progress-bar" id="progress-bar"></div>
+                    </div>
+                    <div class="textarea-stats">
+                        <span id="word-count">0 words</span>
+                        <span id="char-count">0 / 40,000</span>
+                    </div>
+                </div>
+                <div class="stats-panel" id="stats-panel" style="display:none;"></div>
+                <div class="input-actions">
+                    <button class="btn btn-secondary" onclick="clearText()">
+                        <i class="fas fa-eraser"></i> Clear
+                    </button>
+                    <button class="btn btn-secondary" onclick="pasteText()">
+                        <i class="fas fa-paste"></i> Paste
+                    </button>
+                    <button class="btn btn-secondary" onclick="loadSample()">
+                        <i class="fas fa-file-lines"></i> Sample
+                    </button>
+                    <div class="action-spacer"></div>
+                    <button class="btn btn-primary" id="analyze-btn" onclick="runAllChecks()">
+                        <i class="fas fa-microchip"></i> Launch Full Analysis
+                    </button>
+                </div>
+            </div>
+
+            <div class="quick-stats" id="quick-stats" style="display:none;">
+                <div class="quick-stats-title"><i class="fas fa-chart-simple"></i> Intelligence Dashboard</div>
+                <div class="quick-stats-grid">
+                    <div class="stat-card" id="stat-ai">
+                        <div class="stat-icon"><i class="fas fa-robot"></i></div>
+                        <div class="stat-value">--</div>
+                        <div class="stat-label">AI Probability</div>
+                    </div>
+                    <div class="stat-card" id="stat-plagiarism">
+                        <div class="stat-icon"><i class="fas fa-copy"></i></div>
+                        <div class="stat-value">--</div>
+                        <div class="stat-label">Plagiarism Risk</div>
+                    </div>
+                    <div class="stat-card" id="stat-grammar">
+                        <div class="stat-icon"><i class="fas fa-spell-check"></i></div>
+                        <div class="stat-value">--</div>
+                        <div class="stat-label">Grammar Health</div>
+                    </div>
+                    <div class="stat-card" id="stat-words">
+                        <div class="stat-icon"><i class="fas fa-text-height"></i></div>
+                        <div class="stat-value">--</div>
+                        <div class="stat-label">Word Count</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="results-section" id="results-section">
+                <div class="results-header">
+                    <h2><i class="fas fa-flask"></i> Analysis Lab</h2>
+                    <p>Each engine below performs deep structural, statistical, and linguistic analysis on your text.</p>
+                </div>
+                <div class="tabs" id="tab-container">
+                    <div class="tabs-indicator" id="tab-indicator"></div>
+                    <button class="tab active" data-tab="ai-detect" onclick="switchTab('ai-detect')">
+                        <i class="fas fa-robot"></i> AI Forensics
+                    </button>
+                    <button class="tab" data-tab="plagiarism" onclick="switchTab('plagiarism')">
+                        <i class="fas fa-copy"></i> Plagiarism
+                    </button>
+                    <button class="tab" data-tab="paraphrase" onclick="switchTab('paraphrase')">
+                        <i class="fas fa-pen-fancy"></i> Paraphrase
+                    </button>
+                    <button class="tab" data-tab="humanize" onclick="switchTab('humanize')">
+                        <i class="fas fa-user"></i> Humanize
+                    </button>
+                    <button class="tab" data-tab="grammar" onclick="switchTab('grammar')">
+                        <i class="fas fa-spell-check"></i> Grammar
+                    </button>
+                    <button class="tab" data-tab="bypass" onclick="switchTab('bypass')">
+                        <i class="fas fa-shield"></i> Bypass AI
+                    </button>
+                    <button class="tab" data-tab="format" onclick="switchTab('format')">
+                        <i class="fas fa-paragraph"></i> Format
+                    </button>
+                    <button class="tab" data-tab="summary" onclick="switchTab('summary')">
+                        <i class="fas fa-compress"></i> Summary
+                    </button>
+                    <button class="tab" data-tab="tone" onclick="switchTab('tone')">
+                        <i class="fas fa-chart-simple"></i> Tone
+                    </button>
+                </div>
+
+                <div class="tab-content" id="tab-ai-detect" style="display:block;">
+                    <div class="result-placeholder">
+                        <div class="placeholder-icon"><i class="fas fa-microchip"></i></div>
+                        <h3>AI Forensics Engine</h3>
+                        <p>Statistical deep-scan that analyzes burstiness, perplexity, repetition patterns, and AI-typical phrasing to determine if text was written by a human or generated by an LLM. Returns a confidence score with granular breakdown.</p>
+                        <button class="btn btn-primary" onclick="runAIDetect()"><i class="fas fa-play"></i> Scan for AI</button>
+                    </div>
+                </div>
+
+                <div class="tab-content" id="tab-plagiarism" style="display:none;">
+                    <div class="result-placeholder">
+                        <div class="placeholder-icon"><i class="fas fa-search"></i></div>
+                        <h3>Plagiarism Intelligence</h3>
+                        <p>Sentence-level semantic matching engine that cross-references your text against indexed web sources. Detects verbatim copying, near-duplicates, and paraphrased content with similarity scoring for every sentence.</p>
+                        <button class="btn btn-primary" onclick="runPlagiarism()"><i class="fas fa-play"></i> Check Originality</button>
+                    </div>
+                </div>
+
+                <div class="tab-content" id="tab-paraphrase" style="display:none;">
+                    <div class="result-placeholder">
+                        <div class="placeholder-icon"><i class="fas fa-arrows-rotate"></i></div>
+                        <h3>Neural Paraphraser</h3>
+                        <p>Rewrites your text at three intensity levels while preserving semantic meaning. Uses synonym substitution, syntactic restructuring, and clause rearrangement to produce natural-sounding variations.</p>
+                        <div class="intensity-selector">
+                            <label>Intensity:</label>
+                            <select id="paraphrase-intensity">
+                                <option value="low">Low — light touch</option>
+                                <option value="medium" selected>Medium — balanced</option>
+                                <option value="high">High — aggressive</option>
+                            </select>
+                            <button class="btn btn-primary" onclick="runParaphrase()"><i class="fas fa-play"></i> Paraphrase</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-content" id="tab-humanize" style="display:none;">
+                    <div class="result-placeholder">
+                        <div class="placeholder-icon"><i class="fas fa-face-smile"></i></div>
+                        <h3>Humanization Engine</h3>
+                        <p>Transforms stiff, robotic, or AI-generated text into authentic human writing. Introduces natural discourse markers, varied sentence rhythms, colloquial phrasing, and the subtle imperfections that make writing feel genuinely human.</p>
+                        <button class="btn btn-primary" onclick="runHumanize()"><i class="fas fa-play"></i> Humanize Text</button>
+                    </div>
+                </div>
+
+                <div class="tab-content" id="tab-grammar" style="display:none;">
+                    <div class="result-placeholder">
+                        <div class="placeholder-icon"><i class="fas fa-check-double"></i></div>
+                        <h3>Grammar Perfectionist</h3>
+                        <p>Comprehensive grammar, spelling, and style checker powered by rule-based and statistical models. Detects subject-verb agreement errors, punctuation misuse, awkward phrasing, and offers one-click corrections with before/after comparison.</p>
+                        <button class="btn btn-primary" onclick="runGrammar()"><i class="fas fa-play"></i> Inspect Grammar</button>
+                    </div>
+                </div>
+
+                <div class="tab-content" id="tab-bypass" style="display:none;">
+                    <div class="result-placeholder">
+                        <div class="placeholder-icon"><i class="fas fa-shield-halved"></i></div>
+                        <h3>AI Detection Bypass</h3>
+                        <p>Advanced adversarial transformation engine that restructures text to evade AI classifiers. Applies discourse marker insertion, hedging, sentence-length variance, colloquial substitution, and controlled imperfection to reduce AI detection scores significantly.</p>
+                        <div class="bypass-info">
+                            <p style="margin-bottom:8px;"><strong>Bypass Strategies:</strong></p>
+                            <ul>
+                                <li>Discourse marker injection (&ldquo;however,&rdquo; &ldquo;meanwhile&rdquo;)</li>
+                                <li>Hedging &amp; tentative language</li>
+                                <li>Extreme sentence-length variation</li>
+                                <li>Colloquial &amp; idiomatic substitution</li>
+                                <li>Controlled grammatical imperfections</li>
+                                <li>Before/after AI score comparison</li>
+                            </ul>
+                        </div>
+                        <button class="btn btn-primary" onclick="runBypass()"><i class="fas fa-shield"></i> Bypass AI Detection</button>
+                    </div>
+                </div>
+
+                <div class="tab-content" id="tab-format" style="display:none;">
+                    <div class="result-placeholder">
+                        <div class="placeholder-icon"><i class="fas fa-table-cells"></i></div>
+                        <h3>Smart Document Formatter</h3>
+                        <p>Intelligently detects headings, bullet points, numbered lists, and paragraphs — or choose from specialized formatting options below.</p>
+                        <div class="format-editor-actions" style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;max-width:600px;margin:0 auto;">
+                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;width:100%;">
+                                <button class="btn btn-primary" onclick="runFormat('auto')"><i class="fas fa-bolt"></i> Auto-Format</button>
+                                <button class="btn btn-secondary" onclick="runFormat('paragraphs')"><i class="fas fa-paragraph"></i> Paragraphs</button>
+                                <button class="btn btn-secondary" onclick="runFormat('bullet-list')"><i class="fas fa-list-ul"></i> Bullet List</button>
+                                <button class="btn btn-secondary" onclick="runFormat('numbered-list')"><i class="fas fa-list-ol"></i> Numbered List</button>
+                                <button class="btn btn-secondary" onclick="runFormat('blog-post')"><i class="fas fa-newspaper"></i> Blog Post</button>
+                                <button class="btn btn-secondary" onclick="runFormat('title-case')"><i class="fas fa-heading"></i> Title Case</button>
+                                <button class="btn btn-secondary" onclick="runFormat('sentence-case')"><i class="fas fa-font"></i> Sentence Case</button>
+                                <button class="btn btn-secondary" onclick="runFormat('uppercase')"><i class="fas fa-uppercase"></i> UPPERCASE</button>
+                                <button class="btn btn-secondary" onclick="runFormat('lowercase')"><i class="fas fa-lowercase"></i> lowercase</button>
+                                <button class="btn btn-secondary" onclick="runFormat('remove-whitespace')"><i class="fas fa-compress-arrows-alt"></i> Clean Spaces</button>
+                                <button class="btn btn-secondary" onclick="runFormat('code-block')"><i class="fas fa-code"></i> Code Block</button>
+                                <button class="btn btn-secondary" onclick="runFormat('email')"><i class="fas fa-envelope"></i> Email Format</button>
+                                <button class="btn btn-secondary" onclick="runFormat('markdown-table')"><i class="fas fa-table"></i> Markdown Table</button>
+                                <button class="btn btn-secondary" onclick="openEditor()"><i class="fas fa-pen-to-square"></i> Open Full Editor</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-content" id="tab-summary" style="display:none;">
+                    <div class="result-placeholder">
+                        <div class="placeholder-icon"><i class="fas fa-compress"></i></div>
+                        <h3>Extractive Summarizer</h3>
+                        <p>Intelligent sentence-scoring engine that identifies the most important sentences using TF-based frequency analysis, positional weighting, and length normalization. Condenses any text to ~30% of its original length while preserving key meaning.</p>
+                        <button class="btn btn-primary" onclick="runSummarization()"><i class="fas fa-play"></i> Generate Summary</button>
+                    </div>
+                </div>
+
+                <div class="tab-content" id="tab-tone" style="display:none;">
+                    <div class="result-placeholder">
+                        <div class="placeholder-icon"><i class="fas fa-chart-line"></i></div>
+                        <h3>Writing DNA Analyzer</h3>
+                        <p>Deep linguistic profiling that measures four dimensions of your writing: formality vs. casualness, conciseness vs. wordiness, passive voice density, and vocabulary complexity. Includes filler word detection and readability estimation.</p>
+                        <button class="btn btn-primary" onclick="runToneAnalysis()"><i class="fas fa-play"></i> Analyze Writing DNA</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <footer class="footer">
+            <div class="footer-brand">
+                <i class="fas fa-shield-halved"></i> PlagiaShield
+            </div>
+            <div class="footer-links">
+                <span>Enterprise Text Intelligence</span>
+                <span class="footer-dot">&middot;</span>
+                <span>8 Analysis Engines</span>
+                <span class="footer-dot">&middot;</span>
+                <span>Real-time Processing</span>
+                <span class="footer-dot">&middot;</span>
+                <span>Privacy First</span>
+            </div>
+            <div class="footer-signature">
+                <i class="fas fa-code"></i> Designed &amp; Developed by <strong>JAVAID BHAT</strong>
+            </div>
+        </footer>
+
+        <button id="scroll-top-btn" class="scroll-top-btn" onclick="window.scrollTo({top:0,behavior:'smooth'})" aria-label="Scroll to top">
+            <i class="fas fa-arrow-up"></i>
+        </button>
+
+        <div class="history-panel" id="history-panel">
+            <div class="history-panel-header">
+                <h3><i class="fas fa-clock-rotate"></i> Analysis History</h3>
+                <button onclick="toggleHistory()" aria-label="Close">&times;</button>
+            </div>
+            <div class="history-list" id="history-list">
+                <div class="history-empty">
+                    <i class="fas fa-history"></i>
+                    <p>No analyses yet.<br>Run a scan to save it here.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="shortcut-hint">
+            <kbd>Ctrl+Enter</kbd> Full Analysis &middot; <kbd>Ctrl+L</kbd> Clear &middot; <kbd>Ctrl+Shift+P</kbd> Paste
+        </div>
+    </div>
+
+    <div class="particles" aria-hidden="true">
+        <div class="particle"></div><div class="particle"></div><div class="particle"></div>
+        <div class="particle"></div><div class="particle"></div><div class="particle"></div>
+        <div class="particle"></div><div class="particle"></div><div class="particle"></div>
+        <div class="particle"></div><div class="particle"></div><div class="particle"></div>
+    </div>
+    <div id="toast-container" class="toast-container"></div>
+    <div id="loading-overlay" class="loading-overlay" style="display:none;">
+        <div class="loader">
+            <div class="loader-spinner"></div>
+            <p id="loader-text">Analyzing text...</p>
+            <div class="loader-sub" id="loader-sub">Running AI detection</div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+    <script src="/static/script.js"></script>
+</body>
+</html>
