@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PlagiaShield — AI Plagiarism Detection Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root { --bs-body-font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+        body { background: #0a0e1a; min-height: 100vh; }
+        .card { border: 1px solid rgba(99,102,241,0.15); background: #111827; border-radius: 16px; transition: all .2s; }
+        .card:hover { border-color: rgba(99,102,241,0.3); }
+        .card-header { background: rgba(99,102,241,0.08); border-bottom: 1px solid rgba(99,102,241,0.15); font-weight: 600; }
+        .score-value { font-size: 2rem; font-weight: 800; line-height: 1; }
+        .score-label { font-size: .75rem; text-transform: uppercase; letter-spacing: .5px; color: #8892b0; }
+        .progress { height: 8px; border-radius: 4px; background: #1a2035; }
+        .progress-bar { border-radius: 4px; }
+        .gauge { width: 140px; height: 140px; border-radius: 50%; position: relative; display: flex; align-items: center; justify-content: center; margin: 0 auto; }
+        .gauge-ring { position: absolute; inset: 0; border-radius: 50%; border: 8px solid #1a2035; }
+        .gauge-fill { position: absolute; inset: 0; border-radius: 50%; border: 8px solid transparent; clip-path: inset(0 0 50% 0); }
+        .gauge-inner { position: relative; z-index: 1; text-align: center; }
+        .gauge-inner .num { font-size: 1.8rem; font-weight: 800; }
+        .gauge-inner .lbl { font-size: .65rem; color: #8892b0; text-transform: uppercase; }
+        .match-exact { border-left: 4px solid #ef4444; }
+        .match-paraphrase { border-left: 4px solid #f59e0b; }
+        .match-semantic { border-left: 4px solid #eab308; }
+        .match-none { border-left: 4px solid #22c55e; }
+        .sentence-row { padding: 10px 14px; font-size: .875rem; border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; align-items: center; gap: 12px; }
+        .sentence-row .badge { font-weight: 500; font-size: .7rem; }
+        .highlight-exact { background: rgba(239,68,68,0.15); border-bottom: 2px solid #ef4444; cursor: pointer; border-radius: 2px; }
+        .highlight-paraphrase { background: rgba(245,158,11,0.15); border-bottom: 2px solid #f59e0b; cursor: pointer; border-radius: 2px; }
+        .highlight-semantic { background: rgba(234,179,8,0.15); border-bottom: 2px solid #eab308; cursor: pointer; border-radius: 2px; }
+        .nav-link { color: #8892b0; font-weight: 500; border-radius: 10px; padding: 10px 16px; }
+        .nav-link:hover, .nav-link.active { color: #e8edf5; background: rgba(99,102,241,0.12); }
+        .nav-link i { margin-right: 8px; width: 20px; text-align: center; }
+        .match-info-popup { display: none; position: fixed; z-index: 9999; background: #1a2035; border: 1px solid rgba(99,102,241,0.3); border-radius: 12px; padding: 16px; max-width: 360px; box-shadow: 0 20px 60px rgba(0,0,0,.6); }
+        .match-info-popup.show { display: block; }
+        .sentences-container { max-height: 450px; overflow-y: auto; }
+        .sentences-container::-webkit-scrollbar { width: 4px; }
+        .sentences-container::-webkit-scrollbar-thumb { background: #2a3456; border-radius: 2px; }
+        .block-matches-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+        .text-input-area { background: #0f1424; border: 1px solid #2a3456; border-radius: 12px; color: #e8edf5; padding: 14px; width: 100%; min-height: 140px; resize: vertical; font-size: .9rem; }
+        .text-input-area:focus { outline: none; border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.15); }
+        .upload-zone { border: 2px dashed #2a3456; border-radius: 12px; padding: 20px; text-align: center; cursor: pointer; transition: all .2s; }
+        .upload-zone:hover { border-color: #6366f1; background: rgba(99,102,241,0.05); }
+        .stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+        .stat-item { background: #0f1424; border-radius: 10px; padding: 12px; text-align: center; }
+        .stat-item .sval { font-size: 1.3rem; font-weight: 700; }
+        .stat-item .slbl { font-size: .7rem; color: #8892b0; text-transform: uppercase; letter-spacing: .3px; }
+        .toast-container { position: fixed; top: 16px; right: 16px; z-index: 99999; }
+        [data-bs-theme="light"] body { background: #f0f2f5; }
+        [data-bs-theme="light"] .card { background: #fff; border-color: #d1d5db; }
+        [data-bs-theme="light"] .card-header { background: #f8f9fa; border-color: #d1d5db; }
+        [data-bs-theme="light"] .text-input-area { background: #f8f9fa; border-color: #d1d5db; color: #1f2937; }
+        [data-bs-theme="light"] .stat-item { background: #f8f9fa; }
+        [data-bs-theme="light"] .nav-link { color: #6b7280; }
+        [data-bs-theme="light"] .nav-link:hover, [data-bs-theme="light"] .nav-link.active { color: #1f2937; background: #e5e7eb; }
+        .badge-exact { background: #ef4444; }
+        .badge-paraphrase { background: #f59e0b; }
+        .badge-semantic { background: #eab308; color: #000; }
+        .badge-weak { background: #6b7280; }
+        .badge-unique { background: #22c55e; }
+        .btn-accent { background: #6366f1; color: #fff; border: none; }
+        .btn-accent:hover { background: #5558e6; color: #fff; }
+        .btn-outline-accent { border: 1px solid #6366f1; color: #6366f1; }
+        .btn-outline-accent:hover { background: #6366f1; color: #fff; }
+        .style-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; }
+        .heatmap { display: grid; gap: 2px; }
+        .heatmap-cell { border-radius: 3px; min-height: 20px; }
+        .parallax-bg { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; overflow: hidden; }
+        .parallax-bg span { position: absolute; display: block; width: 20px; height: 20px; background: rgba(99,102,241,0.05); border-radius: 50%; animation: float 20s infinite; }
+        @keyframes float { 0%,100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-40px) rotate(180deg); } }
+    </style>
+</head>
+<body>
+    <div class="parallax-bg" id="parallax"></div>
+
+    <!-- Toast container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Match info popup -->
+    <div class="match-info-popup" id="matchPopup">
+        <div class="d-flex justify-content-between align-items-start mb-2">
+            <span class="fw-bold" id="popupType" style="font-size:.9rem;"></span>
+            <button class="btn btn-sm p-0 text-secondary" onclick="hidePopup()"><i class="bi bi-x-lg"></i></button>
+        </div>
+        <div class="mb-1" style="font-size:.8rem;color:#8892b0;">Similarity: <span class="fw-bold text-light" id="popupSim"></span></div>
+        <div style="font-size:.8rem;color:#8892b0;" id="popupReason"></div>
+    </div>
+
+    <!-- Navbar -->
+    <nav class="navbar navbar-dark navbar-expand-lg" style="background: rgba(17,24,39,0.95); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(99,102,241,0.15);">
+        <div class="container-fluid px-4">
+            <a class="navbar-brand fw-bold" href="#">
+                <i class="bi bi-shield-check" style="color:#6366f1;"></i> Plagia<span style="color:#6366f1;">Shield</span>
+                <span class="badge bg-accent ms-2" style="font-size:.65rem;background:rgba(99,102,241,0.2);color:#6366f1;">AI Detection</span>
+            </a>
+            <div class="d-flex gap-2 align-items-center">
+                <button class="btn btn-sm btn-outline-secondary" onclick="toggleTheme()" title="Toggle Theme">
+                    <i class="bi bi-moon-fill" id="themeIcon"></i>
+                </button>
+                <a href="/" class="btn btn-sm btn-outline-accent"><i class="bi bi-grid"></i> Main App</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid px-4 py-4">
+        <div class="row g-4">
+            <!-- Sidebar -->
+            <div class="col-lg-2">
+                <div class="card p-2 sticky-top" style="top:20px;">
+                    <nav class="nav flex-column nav-pills" role="tablist">
+                        <button class="nav-link active" data-bs-toggle="pill" data-bs-target="#tab-overview" role="tab">
+                            <i class="bi bi-speedometer2"></i> Overview
+                        </button>
+                        <button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-input" role="tab">
+                            <i class="bi bi-input-cursor-text"></i> Input
+                        </button>
+                        <button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-compare" role="tab">
+                            <i class="bi bi-files"></i> Compare
+                        </button>
+                        <button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-sentences" role="tab">
+                            <i class="bi bi-list-columns-reverse"></i> Sentences
+                        </button>
+                        <button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-paragraphs" role="tab">
+                            <i class="bi bi-paragraph"></i> Paragraphs
+                        </button>
+                        <button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-style" role="tab">
+                            <i class="bi bi-pen"></i> Writing Style
+                        </button>
+                        <button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-report" role="tab">
+                            <i class="bi bi-file-earmark-text"></i> Report
+                        </button>
+                        <button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-multi" role="tab">
+                            <i class="bi bi-collection"></i> Multi-Doc
+                        </button>
+                    </nav>
+                </div>
+            </div>
+
+            <!-- Main content -->
+            <div class="col-lg-10">
+                <div class="tab-content">
+
+                    <!-- === TAB: Overview === -->
+                    <div class="tab-pane fade show active" id="tab-overview" role="tabpanel">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <h4 class="fw-bold mb-0"><i class="bi bi-speedometer2 me-2" style="color:#6366f1;"></i> Plagiarism Dashboard</h4>
+                            <div>
+                                <button class="btn btn-sm btn-outline-accent me-2" onclick="runFullAnalysis()"><i class="bi bi-play-fill"></i> Analyze</button>
+                                <button class="btn btn-sm btn-outline-secondary" onclick="generateReport()"><i class="bi bi-download"></i> Report</button>
+                            </div>
+                        </div>
+
+                        <!-- Score cards -->
+                        <div class="row g-3 mb-4" id="scoreCards">
+                            <div class="col-md-3">
+                                <div class="card text-center p-3">
+                                    <div class="gauge" id="overallGauge">
+                                        <div class="gauge-ring"></div>
+                                        <div class="gauge-fill" id="gaugeFill" style="border-top-color:#6366f1;border-right-color:#6366f1;"></div>
+                                        <div class="gauge-inner">
+                                            <div class="num" id="overallScore" style="color:#6366f1;">0%</div>
+                                            <div class="lbl">Overall</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card p-3 h-100">
+                                    <div class="score-label"><i class="bi bi-file-text me-1"></i> Lexical</div>
+                                    <div class="score-value mt-1" id="lexicalScore" style="color:#3b82f6;">0%</div>
+                                    <div class="progress mt-2"><div class="progress-bar bg-info" id="lexicalBar" style="width:0%"></div></div>
+                                    <div class="score-label mt-2"><i class="bi bi-chat-dots me-1"></i> Semantic</div>
+                                    <div class="score-value mt-1" id="semanticScore" style="color:#a855f7;">0%</div>
+                                    <div class="progress mt-2"><div class="progress-bar bg-purple" id="semanticBar" style="width:0%;background:#a855f7;"></div></div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card p-3 h-100">
+                                    <div class="score-label"><i class="bi bi-pencil-square me-1"></i> Paraphrase</div>
+                                    <div class="score-value mt-1" id="paraphraseScore" style="color:#f59e0b;">0%</div>
+                                    <div class="progress mt-2"><div class="progress-bar bg-warning" id="paraphraseBar" style="width:0%"></div></div>
+                                    <div class="score-label mt-2"><i class="bi bi-check-circle me-1"></i> Unique Content</div>
+                                    <div class="score-value mt-1" id="uniqueScore" style="color:#22c55e;">100%</div>
+                                    <div class="progress mt-2"><div class="progress-bar bg-success" id="uniqueBar" style="width:100%"></div></div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card p-3 h-100">
+                                    <div class="score-label"><i class="bi bi-shield-check me-1"></i> Confidence</div>
+                                    <div class="score-value mt-1" id="confidenceScore" style="color:#22c55e;">--</div>
+                                    <div class="score-label mt-2"><i class="bi bi-incognito me-1"></i> Sentence Matches</div>
+                                    <div class="score-value mt-1" id="matchCount" style="color:#8892b0;">0</div>
+                                    <div class="score-label mt-2"><i class="bi bi-bar-chart-steps me-1"></i> Match Distribution</div>
+                                    <div id="matchDistribution" style="font-size:.75rem;color:#8892b0;" class="mt-1">No data</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Match type distribution -->
+                        <div class="card p-3 mb-3">
+                            <h6 class="fw-bold mb-3"><i class="bi bi-pie-chart me-2"></i>Match Type Distribution</h6>
+                            <div class="row g-2" id="distributionBars"></div>
+                        </div>
+
+                        <!-- Highlighted text -->
+                        <div class="card p-3 mb-3">
+                            <h6 class="fw-bold mb-3"><i class="bi bi-highlighter me-2"></i>Highlighted Text</h6>
+                            <div id="highlightedText" style="font-size:.9rem;line-height:1.8;color:#d1d5db;">Run analysis to see highlighted matches.</div>
+                            <div class="mt-2 d-flex gap-3" style="font-size:.75rem;">
+                                <span><span style="display:inline-block;width:12px;height:12px;background:#ef4444;border-radius:2px;vertical-align:middle;"></span> Exact Copy</span>
+                                <span><span style="display:inline-block;width:12px;height:12px;background:#f59e0b;border-radius:2px;vertical-align:middle;"></span> Paraphrased</span>
+                                <span><span style="display:inline-block;width:12px;height:12px;background:#eab308;border-radius:2px;vertical-align:middle;"></span> Semantic</span>
+                                <span><span style="display:inline-block;width:12px;height:12px;background:#22c55e;border-radius:2px;vertical-align:middle;"></span> Unique</span>
+                            </div>
+                        </div>
+
+                        <!-- Lexical detail -->
+                        <div class="card p-3">
+                            <h6 class="fw-bold mb-3"><i class="bi bi-bar-chart-line me-2"></i>Lexical Analysis Detail</h6>
+                            <div class="row g-2" id="lexicalDetail"></div>
+                        </div>
+                    </div>
+
+                    <!-- === TAB: Input === -->
+                    <div class="tab-pane fade" id="tab-input" role="tabpanel">
+                        <h4 class="fw-bold mb-3"><i class="bi bi-input-cursor-text me-2" style="color:#6366f1;"></i> Input Text</h4>
+                        <div class="card p-3">
+                            <label class="fw-semibold mb-2">Document A (Source)</label>
+                            <textarea class="text-input-area" id="textA" placeholder="Paste or type your document here...">The quick brown fox jumps over the lazy dog. This demonstrates the importance of speed and agility in animals. Many creatures rely on these traits for survival in the wild. The ability to move quickly allows animals to catch prey and escape predators. Evolution has favored those with greater agility and speed.</textarea>
+                        </div>
+                        <div class="card p-3 mt-3">
+                            <label class="fw-semibold mb-2">Document B (Compare against)</label>
+                            <textarea class="text-input-area" id="textB" placeholder="Paste the document to compare against...">A swift auburn fox leaps across the sleepy hound. This example proves how crucial rapid movement and nimbleness are for creatures throughout nature. Countless animals depend upon these characteristics to endure in untamed environments. Being able to dash swiftly helps fauna capture food and flee from predators. Natural selection has rewarded beings with superior nimbleness and pace.</textarea>
+                        </div>
+                        <div class="card p-3 mt-3">
+                            <div class="upload-zone" id="uploadA" onclick="document.getElementById('fileInputA').click()">
+                                <i class="bi bi-cloud-upload" style="font-size:2rem;color:#6366f1;"></i>
+                                <p class="mb-0 mt-2">Upload Document A (TXT, PDF, DOCX)</p>
+                                <small class="text-secondary">Or paste text above</small>
+                                <input type="file" id="fileInputA" class="d-none" accept=".txt,.pdf,.docx">
+                            </div>
+                        </div>
+                        <div class="card p-3 mt-3">
+                            <div class="upload-zone" id="uploadB" onclick="document.getElementById('fileInputB').click()">
+                                <i class="bi bi-cloud-upload" style="font-size:2rem;color:#6366f1;"></i>
+                                <p class="mb-0 mt-2">Upload Document B (TXT, PDF, DOCX)</p>
+                                <small class="text-secondary">Or paste text above</small>
+                                <input type="file" id="fileInputB" class="d-none" accept=".txt,.pdf,.docx">
+                            </div>
+                        </div>
+                        <button class="btn btn-accent mt-3 w-100 py-2" onclick="runFullAnalysis()"><i class="bi bi-play-fill"></i> Run Full Plagiarism Analysis</button>
+                    </div>
+
+                    <!-- === TAB: Compare === -->
+                    <div class="tab-pane fade" id="tab-compare" role="tabpanel">
+                        <h4 class="fw-bold mb-3"><i class="bi bi-files me-2" style="color:#6366f1;"></i> Document Comparison</h4>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="card p-3">
+                                    <h6 class="fw-bold mb-2">Document A</h6>
+                                    <div id="compareDocA" style="font-size:.85rem;color:#8892b0;max-height:300px;overflow-y:auto;">No analysis run yet.</div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card p-3">
+                                    <h6 class="fw-bold mb-2">Document B</h6>
+                                    <div id="compareDocB" style="font-size:.85rem;color:#8892b0;max-height:300px;overflow-y:auto;">No analysis run yet.</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card p-3 mt-3">
+                            <h6 class="fw-bold mb-3"><i class="bi bi-table me-2"></i>Sentence Comparison Matrix</h6>
+                            <div id="heatmapContainer" style="overflow-x:auto;"></div>
+                        </div>
+                        <div class="card p-3 mt-3">
+                            <h6 class="fw-bold mb-3"><i class="bi bi-layers me-2"></i>Sliding Window Block Matches</h6>
+                            <div id="blockMatches" class="block-matches-grid"></div>
+                        </div>
+                    </div>
+
+                    <!-- === TAB: Sentences === -->
+                    <div class="tab-pane fade" id="tab-sentences" role="tabpanel">
+                        <h4 class="fw-bold mb-3"><i class="bi bi-list-columns-reverse me-2" style="color:#6366f1;"></i> Sentence-Level Matching</h4>
+                        <div class="card p-3">
+                            <div class="d-flex justify-content-between mb-2">
+                                <span class="fw-semibold">Sentence Matches</span>
+                                <span id="sentCount" style="font-size:.85rem;color:#8892b0;">0 matches</span>
+                            </div>
+                            <div class="sentences-container" id="sentenceMatchesList">
+                                <div class="text-center py-4 text-secondary">Run analysis to see sentence matches.</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- === TAB: Paragraphs === -->
+                    <div class="tab-pane fade" id="tab-paragraphs" role="tabpanel">
+                        <h4 class="fw-bold mb-3"><i class="bi bi-paragraph me-2" style="color:#6366f1;"></i> Paragraph-Level Matching</h4>
+                        <div class="card p-3">
+                            <h6 class="fw-bold mb-3">Paragraph Matches</h6>
+                            <div id="paragraphMatchesList">
+                                <div class="text-center py-4 text-secondary">Run analysis to see paragraph matches.</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- === TAB: Writing Style === -->
+                    <div class="tab-pane fade" id="tab-style" role="tabpanel">
+                        <h4 class="fw-bold mb-3"><i class="bi bi-pen me-2" style="color:#6366f1;"></i> Writing Style Analysis</h4>
+                        <div class="card p-3">
+                            <h6 class="fw-bold mb-3">Style Metrics for Document A</h6>
+                            <div class="style-grid" id="styleMetrics">
+                                <div class="text-center py-4 text-secondary col-12">Run analysis to see writing style metrics.</div>
+                            </div>
+                        </div>
+                        <div class="card p-3 mt-3">
+                            <h6 class="fw-bold mb-3">Readability Assessment</h6>
+                            <div id="readabilityResult" class="text-secondary">Run analysis.</div>
+                        </div>
+                    </div>
+
+                    <!-- === TAB: Report === -->
+                    <div class="tab-pane fade" id="tab-report" role="tabpanel">
+                        <h4 class="fw-bold mb-3"><i class="bi bi-file-earmark-text me-2" style="color:#6366f1;"></i> Plagiarism Report</h4>
+                        <div class="card p-3">
+                            <div class="d-flex gap-2 mb-3">
+                                <button class="btn btn-accent" onclick="generateReport()"><i class="bi bi-file-earmark-pdf"></i> Generate PDF Report</button>
+                                <button class="btn btn-outline-secondary" onclick="previewReport()"><i class="bi bi-eye"></i> Preview Report</button>
+                                <button class="btn btn-outline-secondary" onclick="downloadReport()"><i class="bi bi-download"></i> Download HTML</button>
+                            </div>
+                            <div id="reportPreview" style="font-size:.85rem;color:#8892b0;max-height:600px;overflow-y:auto;background:#0f1424;border-radius:8px;padding:16px;">
+                                Run analysis and generate a report to see it here.
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- === TAB: Multi-Doc === -->
+                    <div class="tab-pane fade" id="tab-multi" role="tabpanel">
+                        <h4 class="fw-bold mb-3"><i class="bi bi-collection me-2" style="color:#6366f1;"></i> Multi-Document Comparison</h4>
+                        <div class="card p-3">
+                            <h6 class="fw-bold mb-2">Input Text</h6>
+                            <textarea class="text-input-area" id="multiText" placeholder="Paste the text to compare against multiple documents..." style="min-height:100px;"></textarea>
+                        </div>
+                        <div class="card p-3 mt-3">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <h6 class="fw-bold mb-0">Reference Documents</h6>
+                                <button class="btn btn-sm btn-outline-accent" onclick="addRefDoc()"><i class="bi bi-plus-lg"></i> Add Document</button>
+                            </div>
+                            <div id="refDocs">
+                                <div class="ref-doc mb-2">
+                                    <div class="d-flex gap-2">
+                                        <input class="form-control form-control-sm" style="width:180px;background:#0f1424;border:1px solid #2a3456;color:#e8edf5;" placeholder="Document name" value="Document 1">
+                                        <textarea class="form-control form-control-sm" style="background:#0f1424;border:1px solid #2a3456;color:#e8edf5;min-height:60px;" placeholder="Paste document text..."></textarea>
+                                    </div>
+                                </div>
+                                <div class="ref-doc mb-2">
+                                    <div class="d-flex gap-2">
+                                        <input class="form-control form-control-sm" style="width:180px;background:#0f1424;border:1px solid #2a3456;color:#e8edf5;" placeholder="Document name" value="Document 2">
+                                        <textarea class="form-control form-control-sm" style="background:#0f1424;border:1px solid #2a3456;color:#e8edf5;min-height:60px;" placeholder="Paste document text..."></textarea>
+                                    </div>
+                                </div>
+                            </div>
+                            <button class="btn btn-accent mt-2" onclick="runMultiCompare()"><i class="bi bi-play-fill"></i> Compare All</button>
+                        </div>
+                        <div class="card p-3 mt-3">
+                            <h6 class="fw-bold mb-3">Comparison Results</h6>
+                            <div id="multiResults">
+                                <div class="text-center py-4 text-secondary">Run multi-document comparison to see results.</div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script>
+        // Store latest analysis data
+        let lastAnalysis = null;
+        let reportHtml = null;
+
+        // ---- Parallax ----
+        (function initParallax() {
+            const c = document.getElementById('parallax');
+            for (let i = 0; i < 30; i++) {
+                const s = document.createElement('span');
+                s.style.left = Math.random() * 100 + '%';
+                s.style.top = Math.random() * 100 + '%';
+                s.style.width = s.style.height = (5 + Math.random() * 25) + 'px';
+                s.style.animationDelay = (Math.random() * 20) + 's';
+                s.style.animationDuration = (15 + Math.random() * 20) + 's';
+                s.style.background = `rgba(99,102,241,${0.02 + Math.random() * 0.04})`;
+                c.appendChild(s);
+            }
+        })();
+
+        // ---- Theme ----
+        function toggleTheme() {
+            const html = document.documentElement;
+            const isDark = html.getAttribute('data-bs-theme') !== 'light';
+            html.setAttribute('data-bs-theme', isDark ? 'light' : 'dark');
+            document.getElementById('themeIcon').className = isDark ? 'bi bi-sun-fill' : 'bi bi-moon-fill';
+            localStorage.setItem('plagiashield_theme', isDark ? 'light' : 'dark');
+        }
+        if (localStorage.getItem('plagiashield_theme') === 'light') { toggleTheme(); }
+
+        // ---- Toast ----
+        function showToast(msg, type = 'info') {
+            const c = document.getElementById('toastContainer');
+            const t = document.createElement('div');
+            t.className = 'toast align-items-center text-bg-' + type + ' border-0 show';
+            t.role = 'alert';
+            t.innerHTML = '<div class="d-flex"><div class="toast-body">' + msg + '</div><button type="button" class="btn-close btn-close-white me-2 m-auto" onclick="this.closest(\'.toast\').remove()"></button></div>';
+            c.appendChild(t);
+            setTimeout(() => { t.remove(); }, 4000);
+        }
+
+        // ---- File uploads ----
+        document.getElementById('fileInputA').addEventListener('change', function(e) { handleFile(this, 'textA'); });
+        document.getElementById('fileInputB').addEventListener('change', function(e) { handleFile(this, 'textB'); });
+
+        async function handleFile(input, targetId) {
+            const file = input.files[0];
+            if (!file) return;
+            const ext = file.name.split('.').pop().toLowerCase();
+            try {
+                const text = await file.text();
+                document.getElementById(targetId).value = text;
+                showToast('Loaded: ' + file.name, 'success');
+            } catch (err) {
+                showToast('Failed to read file', 'error');
+            }
+            input.value = '';
+        }
+
+        // ---- Popup ----
+        function showMatchInfo(type, sim, reason, el) {
+            const popup = document.getElementById('matchPopup');
+            document.getElementById('popupType').textContent = type;
+            document.getElementById('popupSim').textContent = sim + '%';
+            document.getElementById('popupReason').textContent = reason;
+            const rect = el.getBoundingClientRect();
+            popup.style.top = (rect.top - 10) + 'px';
+            popup.style.left = (rect.right + 16) + 'px';
+            if (popup.style.left === '' || popup.style.left === 'NaNpx' || parseInt(popup.style.left) + 360 > window.innerWidth) {
+                popup.style.left = (rect.left - 376) + 'px';
+            }
+            popup.classList.add('show');
+        }
+        function hidePopup() { document.getElementById('matchPopup').classList.remove('show'); }
+
+        // ---- Main Analysis ----
+        async function runFullAnalysis() {
+            const textA = document.getElementById('textA').value.trim();
+            const textB = document.getElementById('textB').value.trim();
+            if (!textA || !textB) { showToast('Please enter both documents', 'warning'); return; }
+
+            showToast('Running full plagiarism analysis...', 'info');
+            try {
+                const res = await fetch('/api/plagiarism/compare', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text_a: textA, text_b: textB })
+                });
+                if (!res.ok) {
+                    const text = await res.text();
+                    try {
+                        const errJson = JSON.parse(text);
+                        throw new Error(errJson.error || 'Server error');
+                    } catch (parseErr) {
+                        throw new Error('Server returned ' + res.status + ': ' + text.substring(0, 100));
+                    }
+                }
+                const data = await res.json();
+                lastAnalysis = data;
+                renderDashboard(data);
+                switchTab('tab-overview');
+                showToast('Analysis complete', 'success');
+            } catch (err) {
+                showToast('Analysis failed: ' + err.message, 'danger');
+            }
+        }
+
+        function switchTab(id) {
+            const btn = document.querySelector('[data-bs-target="#' + id + '"]');
+            if (btn) { btn.click(); }
+        }
+
+        // ---- Render Dashboard ----
+        function renderDashboard(data) {
+            const s = data.scores || {};
+            document.getElementById('overallScore').textContent = s.overall_plagiarism_score + '%';
+            document.getElementById('lexicalScore').textContent = s.lexical_similarity + '%';
+            document.getElementById('semanticScore').textContent = s.semantic_similarity + '%';
+            document.getElementById('paraphraseScore').textContent = s.paraphrase_score + '%';
+            document.getElementById('uniqueScore').textContent = s.unique_content + '%';
+            document.getElementById('confidenceScore').textContent = s.confidence + '%';
+
+            document.getElementById('lexicalBar').style.width = s.lexical_similarity + '%';
+            document.getElementById('semanticBar').style.width = s.semantic_similarity + '%';
+            document.getElementById('paraphraseBar').style.width = s.paraphrase_score + '%';
+            document.getElementById('uniqueBar').style.width = s.unique_content + '%';
+
+            // Gauge
+            const pct = s.overall_plagiarism_score || 0;
+            const gauge = document.getElementById('gaugeFill');
+            const color = pct > 50 ? '#ef4444' : pct > 20 ? '#f59e0b' : '#22c55e';
+            document.getElementById('overallScore').style.color = color;
+            gauge.style.borderTopColor = color;
+            gauge.style.borderRightColor = color;
+            gauge.style.transform = 'rotate(' + (pct * 1.8) + 'deg)';
+
+            // Match count
+            const matches = data.sentence_matches || [];
+            document.getElementById('matchCount').textContent = matches.length;
+
+            // Match distribution
+            const dist = data.match_type_distribution || {};
+            document.getElementById('matchDistribution').innerHTML = Object.entries(dist).filter(([k,v]) => v > 0).map(([k,v]) =>
+                '<span>' + k.split(' ')[0] + ': <strong>' + v + '</strong></span>'
+            ).join(' &middot; ') || 'No matches';
+
+            // Distribution bars
+            const distHtml = Object.entries(dist).map(([k,v]) => {
+                const colors = {'Exact Copy':'#ef4444','Near Copy':'#f97316','Paraphrased Match':'#f59e0b','Semantic Match':'#eab308','Weak Similarity':'#6b7280','No Match':'#22c55e'};
+                const c = colors[k] || '#6b7280';
+                const p = matches.length > 0 ? (v / matches.length * 100) : 0;
+                return '<div class="col-md-4 col-6"><div class="d-flex justify-content-between" style="font-size:.8rem;"><span>' + k + '</span><strong>' + v + '</strong></div><div class="progress mt-1"><div class="progress-bar" style="width:' + p + '%;background:' + c + ';"></div></div></div>';
+            }).join('');
+            document.getElementById('distributionBars').innerHTML = distHtml;
+
+            // Highlighted text
+            document.getElementById('highlightedText').innerHTML = data.highlighted_text || '<span class="text-secondary">No highlights available.</span>';
+
+            // Lexical detail
+            const lex = data.lexical_analysis || {};
+            const lexHtml = Object.entries(lex).map(([k,v]) =>
+                '<div class="col-md-2 col-4"><div class="stat-item"><div class="sval">' + v + '%</div><div class="slbl">' + k.replace(/_/g,' ') + '</div></div></div>'
+            ).join('');
+            document.getElementById('lexicalDetail').innerHTML = lexHtml;
+            if (data.lexical_combined_score !== undefined) {
+                document.getElementById('lexicalDetail').innerHTML +=
+                    '<div class="col-md-2 col-4"><div class="stat-item"><div class="sval" style="color:#6366f1;">' + data.lexical_combined_score + '%</div><div class="slbl">Combined Lexical</div></div></div>';
+            }
+
+            // Compare docs
+            document.getElementById('compareDocA').innerHTML = '<p class="mb-0">' + escapeHtml(data.text_a) + '</p>';
+            document.getElementById('compareDocB').innerHTML = '<p class="mb-0">' + escapeHtml(data.text_b) + '</p>';
+
+            // Sentence matches
+            renderSentenceMatches(matches);
+
+            // Paragraph matches
+            renderParagraphMatches(data.paragraph_matches || []);
+
+            // Block matches
+            renderBlockMatches(data.block_matches || []);
+
+            // Writing style
+            renderWritingStyle(data.writing_style);
+
+            // Heatmap
+            renderHeatmap(matches);
+
+            // Pre-generate report
+            generateReportHtml();
+        }
+
+        function renderSentenceMatches(matches) {
+            const c = document.getElementById('sentenceMatchesList');
+            if (!matches.length) {
+                c.innerHTML = '<div class="text-center py-4 text-secondary">No matches found.</div>';
+                return;
+            }
+            document.getElementById('sentCount').textContent = matches.length + ' matches';
+            c.innerHTML = matches.map((m, i) => {
+                const cls = m.match_type.includes('Exact') || m.match_type.includes('Near') ? 'match-exact' :
+                            m.match_type === 'Paraphrased Match' ? 'match-paraphrase' :
+                            m.match_type === 'Semantic Match' ? 'match-semantic' : 'match-none';
+                const badgeCls = m.match_type.includes('Exact') || m.match_type.includes('Near') ? 'badge-exact' :
+                                m.match_type === 'Paraphrased Match' ? 'badge-paraphrase' :
+                                m.match_type === 'Semantic Match' ? 'badge-semantic' :
+                                m.match_type === 'Weak Similarity' ? 'badge-weak' : 'badge-unique';
+                const sim = m.semantic_similarity || m.lexical_similarity || 0;
+                return '<div class="sentence-row ' + cls + '">' +
+                    '<span class="badge ' + badgeCls + '">' + m.match_type + '</span>' +
+                    '<span class="flex-grow-1" style="color:#d1d5db;">' + escapeHtml(m.source_sentence) + '</span>' +
+                    '<i class="bi bi-arrow-right text-secondary"></i>' +
+                    '<span class="flex-grow-1" style="color:#8892b0;">' + escapeHtml(m.matched_sentence) + '</span>' +
+                    '<strong style="color:' + (sim > 60 ? '#ef4444' : sim > 30 ? '#f59e0b' : '#22c55e') + ';">' + sim + '%</strong>' +
+                '</div>';
+            }).join('');
+        }
+
+        function renderParagraphMatches(matches) {
+            const c = document.getElementById('paragraphMatchesList');
+            if (!matches.length) {
+                c.innerHTML = '<div class="text-center py-4 text-secondary">No paragraph matches found.</div>';
+                return;
+            }
+            c.innerHTML = matches.map(m =>
+                '<div class="sentence-row match-semantic">' +
+                '<span class="badge badge-semantic">' + m.overall_score + '%</span>' +
+                '<span style="color:#d1d5db;">' + escapeHtml(m.source_paragraph.slice(0, 120)) + '...</span>' +
+                '<i class="bi bi-arrow-right text-secondary"></i>' +
+                '<span style="color:#8892b0;">' + escapeHtml(m.matched_paragraph.slice(0, 120)) + '...</span>' +
+                '<strong>' + m.overall_score + '%</strong></div>'
+            ).join('');
+        }
+
+        function renderBlockMatches(blocks) {
+            const c = document.getElementById('blockMatches');
+            if (!blocks.length) {
+                c.innerHTML = '<div class="text-center py-4 text-secondary col-12">No block matches found.</div>';
+                return;
+            }
+            c.innerHTML = blocks.map(b =>
+                '<div class="card p-2" style="border-left:3px solid ' + (b.similarity > 60 ? '#ef4444' : '#f59e0b') + ';">' +
+                '<div class="d-flex justify-content-between"><span class="badge ' + (b.similarity > 60 ? 'bg-danger' : 'bg-warning') + '">' + b.match_type + '</span>' +
+                '<small class="text-secondary">Window: ' + b.window_size + ' sents </small></div>' +
+                '<small class="mt-1" style="color:#d1d5db;">' + escapeHtml(b.source_text.slice(0, 100)) + '...</small>' +
+                '<small class="text-secondary"><i class="bi bi-arrow-right"></i> ' + escapeHtml(b.matched_text.slice(0, 100)) + '...</small>' +
+                '<strong class="mt-1" style="color:' + (b.similarity > 60 ? '#ef4444' : '#f59e0b') + ';">' + b.similarity + '%</strong></div>'
+            ).join('');
+        }
+
+        function renderWritingStyle(ws) {
+            const c = document.getElementById('styleMetrics');
+            if (!ws || !ws.total_words) {
+                c.innerHTML = '<div class="text-center py-3 text-secondary col-12">No style data available.</div>';
+                return;
+            }
+            const metrics = [
+                { label: 'Readability', value: ws.readability_label, color: '#6366f1' },
+                { label: 'Words', value: ws.total_words, color: '#3b82f6' },
+                { label: 'Sentences', value: ws.total_sentences, color: '#22c55e' },
+                { label: 'Vocab Diversity', value: ws.vocabulary_diversity + '%', color: '#a855f7' },
+                { label: 'Burstiness', value: ws.burstiness, color: '#f59e0b' },
+                { label: 'Avg Sent Length', value: ws.avg_sentence_length, color: '#ec4899' },
+                { label: 'Repetition', value: ws.repetition_rate + '%', color: '#ef4444' },
+                { label: 'Passive Voice', value: ws.passive_voice_frequency + '%', color: '#06b6d4' },
+                { label: 'Transitions', value: ws.transition_word_frequency + '%', color: '#8b5cf6' },
+                { label: 'Avg Word Length', value: ws.avg_word_length, color: '#84cc16' },
+                { label: 'Complexity', value: ws.avg_sentence_complexity, color: '#14b8a6' },
+            ];
+            c.innerHTML = metrics.map(m =>
+                '<div class="stat-item"><div class="sval" style="color:' + m.color + ';">' + m.value + '</div><div class="slbl">' + m.label + '</div></div>'
+            ).join('');
+
+            // Readability
+            document.getElementById('readabilityResult').innerHTML =
+                '<div class="d-flex align-items-center gap-3"><span class="badge" style="background:#6366f1;font-size:1rem;padding:8px 16px;">' + ws.readability_label + '</span>' +
+                '<span>Score: <strong>' + ws.readability_score + '</strong> &mdash; ' +
+                (ws.readability_score > 80 ? 'Very easy to read.' : ws.readability_score > 60 ? 'Standard readability.' : ws.readability_score > 30 ? 'Fairly difficult to read.' : 'Very difficult to read.') +
+                '</span></div>';
+        }
+
+        function renderHeatmap(matches) {
+            const c = document.getElementById('heatmapContainer');
+            if (!matches.length) {
+                c.innerHTML = '<div class="text-secondary">No data for heatmap.</div>';
+                return;
+            }
+            // Simple grid heatmap
+            const cols = Math.min(10, matches.length);
+            const rows = Math.ceil(matches.length / cols);
+            let html = '<div class="heatmap" style="grid-template-columns:repeat(' + cols + ',1fr);">';
+            for (let i = 0; i < matches.length && i < 60; i++) {
+                const m = matches[i];
+                const sim = (m.semantic_similarity || m.lexical_similarity || 0) / 100;
+                const r = Math.round(255 * sim);
+                const g = Math.round(255 * (1 - sim));
+                const b = 50;
+                html += '<div class="heatmap-cell" style="background:rgba(' + r + ',' + g + ',' + b + ',0.3);" title="' + m.match_type + ': ' + (m.semantic_similarity || m.lexical_similarity) + '%"></div>';
+            }
+            html += '</div><small class="text-secondary mt-1 d-block">' + matches.length + ' sentence comparisons (darker = higher similarity)</small>';
+            c.innerHTML = html;
+        }
+
+        async function generateReportHtml() {
+            const textA = document.getElementById('textA').value.trim();
+            const textB = document.getElementById('textB').value.trim();
+            if (!textA || !textB) return;
+            try {
+                const res = await fetch('/api/plagiarism/report', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text_a: textA, text_b: textB })
+                });
+                if (!res.ok) return;
+                const data = await res.json();
+                reportHtml = data.report_html;
+            } catch(e) {}
+        }
+
+        async function generateReport() {
+            if (!reportHtml) { await generateReportHtml(); }
+            if (!reportHtml) { showToast('Run analysis first', 'warning'); return; }
+            const blob = new Blob([reportHtml], { type: 'text/html' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'plagiarism_report.html';
+            a.click();
+            URL.revokeObjectURL(a.href);
+            showToast('Report downloaded', 'success');
+        }
+
+        function previewReport() {
+            if (!reportHtml) { showToast('Run analysis first', 'warning'); return; }
+            document.getElementById('reportPreview').innerHTML = reportHtml;
+            switchTab('tab-report');
+        }
+
+        function downloadReport() { generateReport(); }
+
+        // ---- Multi-Doc ----
+        function addRefDoc() {
+            const c = document.getElementById('refDocs');
+            const n = c.children.length + 1;
+            const div = document.createElement('div');
+            div.className = 'ref-doc mb-2';
+            div.innerHTML = '<div class="d-flex gap-2"><input class="form-control form-control-sm" style="width:180px;background:#0f1424;border:1px solid #2a3456;color:#e8edf5;" placeholder="Document name" value="Document ' + n + '"><textarea class="form-control form-control-sm" style="background:#0f1424;border:1px solid #2a3456;color:#e8edf5;min-height:60px;" placeholder="Paste document text..."></textarea><button class="btn btn-sm btn-outline-danger" onclick="this.closest(\'.ref-doc\').remove()"><i class="bi bi-x"></i></button></div>';
+            c.appendChild(div);
+        }
+
+        async function runMultiCompare() {
+            const text = document.getElementById('multiText').value.trim();
+            if (!text) { showToast('Enter input text', 'warning'); return; }
+            const docDivs = document.querySelectorAll('.ref-doc');
+            const documents = [];
+            docDivs.forEach(d => {
+                const name = d.querySelector('input').value.trim() || 'Unnamed';
+                const txt = d.querySelector('textarea').value.trim();
+                if (txt) documents.push({ name, text: txt });
+            });
+            if (!documents.length) { showToast('Add at least one reference document', 'warning'); return; }
+            try {
+                const res = await fetch('/api/plagiarism/multi', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text, documents })
+                });
+                const data = await res.json();
+                renderMultiResults(data.comparisons || []);
+                showToast('Multi-document comparison complete', 'success');
+            } catch (err) {
+                showToast('Multi-compare failed: ' + err.message, 'danger');
+            }
+        }
+
+        function renderMultiResults(comparisons) {
+            const c = document.getElementById('multiResults');
+            if (!comparisons.length) {
+                c.innerHTML = '<div class="text-secondary">No results.</div>';
+                return;
+            }
+            c.innerHTML = comparisons.map(cmp =>
+                '<div class="card mb-2 p-3">' +
+                '<div class="d-flex justify-content-between align-items-center">' +
+                '<h6 class="fw-bold mb-0">' + escapeHtml(cmp.document_name) + '</h6>' +
+                '<span class="badge" style="background:' + (cmp.scores.overall_plagiarism_score > 50 ? '#ef4444' : cmp.scores.overall_plagiarism_score > 20 ? '#f59e0b' : '#22c55e') + ';font-size:1rem;">' + cmp.scores.overall_plagiarism_score + '%</span>' +
+                '</div>' +
+                '<div class="row g-2 mt-2">' +
+                '<div class="col-3"><small class="text-secondary">Lexical</small><br><strong>' + cmp.scores.lexical_similarity + '%</strong></div>' +
+                '<div class="col-3"><small class="text-secondary">Semantic</small><br><strong>' + cmp.scores.semantic_similarity + '%</strong></div>' +
+                '<div class="col-3"><small class="text-secondary">Paraphrase</small><br><strong>' + cmp.scores.paraphrase_score + '%</strong></div>' +
+                '<div class="col-3"><small class="text-secondary">Unique</small><br><strong>' + cmp.scores.unique_content + '%</strong></div>' +
+                '</div></div>'
+            ).join('');
+        }
+
+        // ---- Utility ----
+        function escapeHtml(t) {
+            if (!t) return '';
+            const d = document.createElement('div');
+            d.textContent = t;
+            return d.innerHTML;
+        }
+
+        // ---- Load sample on startup ----
+        (function init() {
+            // Add bootstrap theme class to body
+            const theme = localStorage.getItem('plagiashield_theme');
+            if (theme === 'light') { document.documentElement.setAttribute('data-bs-theme', 'light'); document.getElementById('themeIcon').className = 'bi bi-sun-fill'; }
+        })();
+    </script>
+</body>
+</html>

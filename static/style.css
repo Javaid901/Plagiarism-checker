@@ -1321,6 +1321,37 @@ body::after {
     white-space: nowrap;
 }
 
+.sentence-match.paraphrase-match {
+    background: rgba(245, 158, 11, 0.08);
+    border-left: 3px solid var(--warning);
+}
+
+.sentence-match.semantic-match {
+    background: rgba(99, 102, 241, 0.06);
+    border-left: 3px solid var(--accent);
+}
+
+.match-badge {
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: 600;
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+}
+
+.match-badge.paraphrase-badge {
+    background: rgba(245, 158, 11, 0.15);
+    color: var(--warning);
+}
+
+.match-badge.semantic-badge {
+    background: rgba(99, 102, 241, 0.15);
+    color: var(--accent);
+}
+
 .copy-btn {
     background: var(--bg-input);
     border: 1px solid var(--border);

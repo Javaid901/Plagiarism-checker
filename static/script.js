@@ -445,14 +445,15 @@ function openEditor() {
 }
 
 function renderFormatResults(result) {
-    const tab = document.getElementById('tab-format');
-    tab.innerHTML = `
+    const area = document.getElementById('format-results-area');
+    if (!area) return;
+    area.innerHTML = `
         <div class="result-card">
             <h4>Original Text (${result.word_count_original} words)</h4>
             <div class="output-text diff-original">${escapeHtml(result.original)}</div>
         </div>
         <div class="result-card">
-            <h4>Formatted Document (${result.word_count_new} words &middot; auto-structured)</h4>
+            <h4>Formatted &mdash; ${result.format_type.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())} (${result.word_count_new} words)</h4>
             <div class="output-text diff-corrected formatted-output">${result.formatted}</div>
             <div class="action-btns">
                 <button class="copy-btn" onclick="copyFormatted(this)"><i class="fas fa-copy"></i> Copy HTML</button>
@@ -531,17 +532,26 @@ function renderAIResults(result) {
 function renderPlagiarismResults(result) {
     const tab = document.getElementById('tab-plagiarism');
     const scoreClass = result.score > 30 ? 'high' : result.score > 10 ? 'medium' : 'low';
+    const engine = result.engine || 'lexical';
+    const isSemantic = engine.includes('semantic');
 
     let sentenceHtml = '';
     if (result.sentence_analysis) {
-        sentenceHtml = result.sentence_analysis.map(s => `
-            <div class="sentence-match">
+        sentenceHtml = result.sentence_analysis.map(s => {
+            const isPara = s.paraphrase_match;
+            const isSem = s.semantic_match;
+            let badge = '';
+            if (isPara) badge = '<span class="match-badge paraphrase-badge" title="Semantically similar but worded differently"><i class="fas fa-pen-fancy"></i> Paraphrased</span>';
+            else if (isSem) badge = '<span class="match-badge semantic-badge" title="Semantically similar content"><i class="fas fa-brain"></i> Semantic</span>';
+            return `
+            <div class="sentence-match ${isPara ? 'paraphrase-match' : isSem ? 'semantic-match' : ''}">
                 <span class="match-text">${s.sentence.length > 80 ? s.sentence.substring(0, 80) + '...' : s.sentence}</span>
                 <span class="match-score" style="color: ${s.similarity > 40 ? 'var(--danger)' : s.similarity > 20 ? 'var(--warning)' : 'var(--success)'}">
                     ${s.matched ? s.similarity + '% match' : 'Unique'}
                 </span>
-            </div>
-        `).join('');
+                ${badge}
+            </div>`;
+        }).join('');
     }
 
     tab.innerHTML = `
@@ -558,6 +568,10 @@ function renderPlagiarismResults(result) {
                 <div class="detail-label">Matches Found</div>
                 <div class="detail-value">${result.matches ? result.matches.length : 0}</div>
             </div>
+            <div class="detail-item">
+                <div class="detail-label">Engine</div>
+                <div class="detail-value" style="font-size:11px;opacity:0.8;">${isSemantic ? '<i class="fas fa-brain" style="color:var(--accent);"></i> ' : ''}${engine}</div>
+            </div>
         </div>
         <div class="score-bar">
             <div class="score-bar-fill ${scoreClass}" style="width: ${result.score}%"></div>
@@ -566,19 +580,22 @@ function renderPlagiarismResults(result) {
         <div class="result-card">
             <h4>Web Sources ${result.sources.length > 0 ? `(${result.sources.length})` : ''}</h4>
             <div class="sources-list">
-                ${result.sources.map(s => `
+                ${result.sources.map(s => {
+                    const extra = (s.semantic_similarity !== undefined && s.semantic_similarity !== null) ?
+                        `&middot; Semantic: ${s.semantic_similarity}%` : '';
+                    return `
                     <div class="source-item">
                         <div class="source-title">${s.title || 'Web Source'}</div>
                         <div class="source-snippet">${s.snippet ? s.snippet.substring(0, 150) : 'Source found'}</div>
-                        <div class="source-similarity">${s.similarity}% similarity</div>
-                    </div>
-                `).join('')}
+                        <div class="source-similarity">Lexical: ${s.similarity}% ${extra}</div>
+                    </div>`;
+                }).join('')}
             </div>
         </div>
         ` : ''}
         ${sentenceHtml ? `
         <div class="result-card">
-            <h4>Sentence Analysis</h4>
+            <h4>Sentence Analysis <span style="font-weight:400;font-size:12px;opacity:0.6;">${isSemantic ? '&middot; Semantic + Lexical comparison' : '&middot; Lexical comparison'}</span></h4>
             <div class="sentence-analysis-grid">${sentenceHtml}</div>
         </div>
         ` : ''}

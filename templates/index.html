@@ -212,11 +212,13 @@
                 </div>
 
                 <div class="tab-content" id="tab-format" style="display:none;">
-                    <div class="result-placeholder">
-                        <div class="placeholder-icon"><i class="fas fa-table-cells"></i></div>
-                        <h3>Smart Document Formatter</h3>
-                        <p>Intelligently detects headings, bullet points, numbered lists, and paragraphs — or choose from specialized formatting options below.</p>
-                        <div class="format-editor-actions" style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;max-width:600px;margin:0 auto;">
+                    <div class="format-buttons-panel">
+                        <div class="result-placeholder" style="margin-bottom:16px;">
+                            <div class="placeholder-icon"><i class="fas fa-table-cells"></i></div>
+                            <h3>Smart Document Formatter</h3>
+                            <p>Intelligently detects headings, bullet points, numbered lists, and paragraphs — or choose from specialized formatting options below.</p>
+                        </div>
+                        <div class="format-editor-actions" style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;max-width:600px;margin:0 auto 16px;">
                             <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;width:100%;">
                                 <button class="btn btn-primary" onclick="runFormat('auto')"><i class="fas fa-bolt"></i> Auto-Format</button>
                                 <button class="btn btn-secondary" onclick="runFormat('paragraphs')"><i class="fas fa-paragraph"></i> Paragraphs</button>
@@ -235,6 +237,7 @@
                             </div>
                         </div>
                     </div>
+                    <div id="format-results-area"></div>
                 </div>
 
                 <div class="tab-content" id="tab-summary" style="display:none;">
@@ -264,7 +267,7 @@
             <div class="footer-links">
                 <span>Enterprise Text Intelligence</span>
                 <span class="footer-dot">&middot;</span>
-                <span>8 Analysis Engines</span>
+                <span>12+ Analysis Engines</span>
                 <span class="footer-dot">&middot;</span>
                 <span>Real-time Processing</span>
                 <span class="footer-dot">&middot;</span>
