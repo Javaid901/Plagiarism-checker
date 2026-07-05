@@ -1,3 +1,13 @@
+---
+title: Plagiarism Checker
+emoji: 😻
+colorFrom: purple
+colorTo: green
+sdk: docker
+pinned: false
+license: mit
+---
+
 # AI-Powered Plagiarism Checker
 
 ## Overview
@@ -28,6 +38,7 @@ plagiarism-checker/
 │
 ├── app.py
 ├── requirements.txt
+├── Dockerfile
 ├── services/
 ├── static/
 ├── templates/
@@ -36,25 +47,14 @@ plagiarism-checker/
 
 ## Installation
 
-Clone the repository
-
 ```bash
 git clone https://github.com/Javaid901/Plagiarism-checker.git
-```
-
-Install dependencies
-
-```bash
+cd Plagiarism-checker
 pip install -r requirements.txt
-```
-
-Run the application
-
-```bash
 python app.py
 ```
 
-Open your browser
+Open:
 
 ```
 http://127.0.0.1:5000
@@ -70,5 +70,5 @@ http://127.0.0.1:5000
 
 ## Author
 
-Javaid Bhat
+Javaid Bhat  
 MCA Student
