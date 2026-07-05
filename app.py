@@ -1,3 +1,4 @@
+import gc
 from flask import Flask, render_template, request, jsonify, send_file
 from services.ai_detector import AIDetector
 from services.semantic_plagiarism import SemanticPlagiarismDetector
@@ -15,8 +16,9 @@ from services.plagiarism_report import PlagiarismReport
 import io, time, os, tempfile
 
 app = Flask(__name__)
-app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024
+app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024
 
+# Lazy model loading — model only loads on first encode() call
 ai_detector = AIDetector()
 plagiarism_engine = PlagiarismEngine()
 paraphraser = Paraphraser()
@@ -280,6 +282,24 @@ def batch_process():
 
     return jsonify(results)
 
+@app.route('/api/memory/status', methods=['GET'])
+def memory_status():
+    import os as _os
+    try:
+        import psutil
+        proc = psutil.Process()
+        mem = proc.memory_info()
+        info = {
+            "rss_mb": round(mem.rss / 1024 / 1024, 1),
+            "vms_mb": round(mem.vms / 1024 / 1024, 1),
+            "model_loaded": semantic_sim.model is not None,
+            "cache_size": semantic_sim.cache.size(),
+        }
+    except ImportError:
+        import tracemalloc
+        info = {"model_loaded": semantic_sim.model is not None, "cache_size": semantic_sim.cache.size()}
+    return jsonify(info)
+
 if __name__ == '__main__':
     import nltk
     try:
@@ -287,4 +307,16 @@ if __name__ == '__main__':
     except LookupError:
         nltk.download('punkt', quiet=True)
 
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    # Use debug=False on Render (512MB limit); set FLASK_DEBUG=1 for local dev
+    import os as _os
+    debug_mode = _os.environ.get('FLASK_DEBUG', '0') == '1'
+
+    # Pre-load model in background to warm up before first request
+    if _os.environ.get('PRELOAD_MODEL', '0') == '1':
+        import threading
+        threading.Thread(target=semantic_sim.model, daemon=True).start()
+
+    # Run garbage collector after startup
+    gc.collect()
+
+    app.run(host='0.0.0.0', port=int(_os.environ.get('PORT', 5000)), debug=debug_mode)

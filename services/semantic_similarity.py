@@ -1,3 +1,4 @@
+import os
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 
@@ -9,16 +10,18 @@ except ImportError:
 
 from .embedding_cache import EmbeddingCache
 
+_MODEL_NAME = os.environ.get('SEMANTIC_MODEL', 'all-MiniLM-L6-v2')
+
 class SemanticSimilarity:
     _instance = None
 
-    def __new__(cls, model_name='all-MiniLM-L6-v2'):
+    def __new__(cls, model_name=_MODEL_NAME):
         if cls._instance is None:
             cls._instance = super().__new__(cls)
             cls._instance._initialized = False
         return cls._instance
 
-    def __init__(self, model_name='all-MiniLM-L6-v2'):
+    def __init__(self, model_name=_MODEL_NAME):
         if self._initialized:
             return
         self._initialized = True
@@ -30,7 +33,10 @@ class SemanticSimilarity:
     def model(self):
         if self._model is None and _HAS_TRANSFORMERS:
             try:
-                self._model = SentenceTransformer(self._model_name)
+                import torch
+                torch.set_num_threads(1)
+                self._model = SentenceTransformer(self._model_name, device='cpu')
+                import gc; gc.collect()
             except Exception:
                 pass
         return self._model

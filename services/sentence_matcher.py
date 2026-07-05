@@ -80,11 +80,12 @@ class ParagraphMatcher:
         paras = re.split(r'\n\s*\n', text)
         return [p.strip() for p in paras if len(p.strip()) > 10]
 
-    def sliding_windows(self, text, sizes=[3, 5, 8]):
+    def sliding_windows(self, text, sizes=[3, 5]):
         sents = self.sentence_matcher.split_sentences(text)
         windows = []
         for size in sizes:
-            for i in range(0, len(sents) - size + 1):
+            step = max(1, size // 2)
+            for i in range(0, len(sents) - size + 1, step):
                 window_text = ' '.join(sents[i:i+size])
                 windows.append({
                     "size": size,

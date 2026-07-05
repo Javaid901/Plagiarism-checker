@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: plagiashield
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app -c gunicorn_config.py
+    envVars:
+      - key: FLASK_DEBUG
+        value: "0"
+      - key: PRELOAD_MODEL
+        value: "0"
+      - key: PYTHONUNBUFFERED
+        value: "1"
+      # Use a smaller model for 512MB RAM: paraphrase-MiniLM-L3-v2 (~20MB)
+      # Default: all-MiniLM-L6-v2 (~80MB)
+      - key: SEMANTIC_MODEL
+        value: "all-MiniLM-L6-v2"
+    plan: free
+    healthCheckPath: /
