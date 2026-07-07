@@ -30,6 +30,8 @@ class TextFormatter:
             return {"original": text, "formatted": "", "format_type": format_type}
 
         format_type = format_type or "auto"
+        detected = self._detect_input_structure(text)
+
         format_map = {
             "paragraphs": self._format_paragraphs,
             "bullet-list": self._format_bullet_list,
@@ -54,7 +56,78 @@ class TextFormatter:
             "format_type": format_type,
             "word_count_original": len(text.split()),
             "word_count_new": len(formatted.split()),
+            "detected_structure": detected,
         }
+
+    def _detect_input_structure(self, text):
+        blocks = self._parse_to_blocks(text)
+        if not blocks:
+            return {"type": "empty", "label": "Empty text"}
+
+        has_headings = any(b[0] == 'heading' for b in blocks)
+        has_lists = any(b[0] in ('ul', 'ol') for b in blocks)
+        has_paragraphs = any(b[0] == 'para' for b in blocks)
+        block_count = len(blocks)
+        list_items = sum(len(b[1]) for b in blocks if b[0] in ('ul', 'ol'))
+        heading_count = sum(1 for b in blocks if b[0] == 'heading')
+
+        details = {
+            "blocks": block_count,
+            "headings": heading_count,
+            "list_items": list_items,
+        }
+
+        if block_count == 1:
+            bt, bc = blocks[0]
+            if bt == 'para':
+                sents = self._sentences(bc)
+                if len(sents) <= 3:
+                    details["type"] = "short-text"
+                    details["label"] = "Short text"
+                elif len(sents) <= 8:
+                    details["type"] = "paragraph"
+                    details["label"] = "Single paragraph"
+                else:
+                    details["type"] = "long-paragraph"
+                    details["label"] = "Long text"
+            elif bt == 'ul':
+                details["type"] = "bullet-list"
+                details["label"] = f"Bullet list ({list_items} items)"
+            elif bt == 'ol':
+                details["type"] = "numbered-list"
+                details["label"] = f"Numbered list ({list_items} items)"
+            elif bt == 'heading':
+                details["type"] = "single-heading"
+                details["label"] = "Single heading"
+        elif has_headings and has_lists:
+            details["type"] = "structured-document"
+            parts = []
+            if heading_count:
+                parts.append(f"{heading_count} heading{'s' if heading_count > 1 else ''}")
+            if list_items:
+                parts.append(f"{list_items} list item{'s' if list_items > 1 else ''}")
+            if has_paragraphs:
+                details["label"] = f"Structured document — {' + '.join(parts)}"
+            else:
+                details["label"] = f"Heading{'s' if heading_count > 1 else ''} with lists — {' + '.join(parts)}"
+        elif has_headings:
+            details["type"] = "headings-only"
+            details["label"] = f"Section headings ({heading_count} heading{'s' if heading_count > 1 else ''})"
+        elif has_lists:
+            details["type"] = "mixed-lists"
+            ul_count = sum(1 for b in blocks if b[0] == 'ul')
+            ol_count = sum(1 for b in blocks if b[0] == 'ol')
+            labels = []
+            if ul_count:
+                labels.append(f"{ul_count} bullet list{'s' if ul_count > 1 else ''}")
+            if ol_count:
+                labels.append(f"{ol_count} numbered list{'s' if ol_count > 1 else ''}")
+            details["label"] = ' + '.join(labels)
+        else:
+            details["type"] = "paragraphs"
+            details["label"] = f"{block_count} paragraph{'s' if block_count > 1 else ''}"
+
+        return details
 
     def _split_paragraphs(self, text):
         paras = re.split(r'\n\s*\n', text)
@@ -123,89 +196,7 @@ class TextFormatter:
         short_count = sum(1 for s in sents if len(s.split()) <= 12)
         return list_count >= len(sents) * 0.3 or short_count >= len(sents) * 0.6
 
-    def _format_blog_post(self, text):
-        sections = self._detect_sections(text)
-        output_parts = []
-
-        for label, sents in sections:
-            heading = label[0].upper() + label[1:] if label and label != "intro" else ""
-            if not heading:
-                heading = "Introduction"
-            if heading == "Intro":
-                heading = "Introduction"
-
-            if self._is_list_section(sents):
-                output_parts.append(f"<h3>{heading}</h3>")
-                output_parts.append("<ul>")
-                cleaned = []
-                for s in sents:
-                    s_clean = re.sub(r'^[\d\.,\)\-\*\s]+', '', s).strip()
-                    if s_clean:
-                        cleaned.append(s_clean)
-                if not cleaned:
-                    cleaned = sents
-                for item in cleaned:
-                    output_parts.append(f"<li>{item}</li>")
-                output_parts.append("</ul>")
-            else:
-                output_parts.append(f"<h3>{heading}</h3>")
-                para_text = " ".join(sents)
-                output_parts.append(f"<p>{para_text}</p>")
-
-        html = "\n".join(output_parts)
-        return html
-
-    def _format_paragraphs(self, text):
-        text = re.sub(r'\s+', ' ', text).strip()
-        sents = self._sentences(text)
-        groups = []
-        current = []
-
-        for s in sents:
-            current.append(s)
-            if len(current) >= random.randint(3, 5):
-                groups.append(" ".join(current))
-                current = []
-
-        if current:
-            groups.append(" ".join(current))
-
-        if not groups:
-            groups = [text]
-
-        paras = "\n\n".join(f"<p>{g}</p>" for g in groups)
-        return paras
-
-    def _format_bullet_list(self, text):
-        sents = self._sentences(text)
-        cleaned = []
-        for s in sents:
-            s_clean = re.sub(r'^[\d\.,\)\-\*\s]+', '', s).strip()
-            if s_clean:
-                cleaned.append(s_clean)
-
-        if not cleaned:
-            cleaned = sents
-
-        items = "\n".join(f"<li>{item}</li>" for item in cleaned)
-        return f"<ul>\n{items}\n</ul>"
-
-    def _format_numbered_list(self, text):
-        sents = self._sentences(text)
-        cleaned = []
-        for s in sents:
-            s_clean = re.sub(r'^[\d\.,\)\-\*\s]+', '', s).strip()
-            if s_clean:
-                cleaned.append(s_clean)
-
-        if not cleaned:
-            cleaned = sents
-
-        items = "\n".join(f"<li>{item}</li>" for item in cleaned)
-        return f"<ol>\n{items}\n</ol>"
-
-    def _auto_format(self, text):
-        """Intelligently detect headings, lists, and paragraphs — like a Word auto-format."""
+    def _parse_to_blocks(self, text):
         lines = text.split('\n')
         blocks = []
         current_para = []
@@ -213,6 +204,9 @@ class TextFormatter:
         def is_heading(line):
             stripped = line.strip()
             if not stripped:
+                return False
+            # Don't classify list items as headings
+            if re.match(r'^[\d]+[\.\)]\s', stripped) or re.match(r'^[\-\*\•]\s', stripped):
                 return False
             if len(stripped) < 70 and not stripped.rstrip().endswith('.') and not stripped.rstrip().endswith(':'):
                 words = stripped.split()
@@ -260,7 +254,6 @@ class TextFormatter:
                 if current_para:
                     blocks.append(('para', ' '.join(current_para)))
                     current_para = []
-                # Look ahead past blank lines for list items
                 list_type = None
                 j = i + 1
                 while j < len(lines):
@@ -295,14 +288,12 @@ class TextFormatter:
                             items.append(cleaned if cleaned else next_line)
                         elif not lt and next_line and len(next_line.split()) <= 14 and items:
                             cleaned = re.sub(r'^[\d\.,\)\-\*\•\s]+', '', next_line).strip()
-                            # Don't include if it looks like a heading
                             if cleaned.lower().rstrip('.:') in self.section_keywords or (cleaned.endswith(':') and len(cleaned.split()) <= 6):
                                 break
                             items.append(cleaned if cleaned else next_line)
                         else:
                             break
                         j += 1
-                    # Check that items aren't headings themselves
                     non_heading_items = []
                     for item in items:
                         if not (item.lower().rstrip('.:') in self.section_keywords or (item.endswith(':') and len(item.split()) <= 6)):
@@ -356,7 +347,6 @@ class TextFormatter:
         if current_para:
             blocks.append(('para', ' '.join(current_para)))
 
-        # Fallback for text without line breaks
         if not blocks:
             sents = self._sentences(text)
             if sents:
@@ -372,6 +362,9 @@ class TextFormatter:
                     else:
                         blocks.append(('para', ' '.join(sents)))
 
+        return blocks
+
+    def _blocks_to_html(self, blocks):
         html_parts = []
         for block_type, content in blocks:
             if block_type == 'heading':
@@ -384,56 +377,146 @@ class TextFormatter:
                 html_parts.append(f'<ol>{items_html}</ol>')
             elif block_type == 'para':
                 html_parts.append(f'<p>{content}</p>')
-
         return '\n'.join(html_parts)
 
+    def _auto_format(self, text):
+        blocks = self._parse_to_blocks(text)
+        return self._blocks_to_html(blocks)
+
+    def _format_paragraphs(self, text):
+        blocks = self._parse_to_blocks(text)
+        transformed = []
+        for bt, bc in blocks:
+            if bt == 'heading':
+                transformed.append((bt, bc))
+            elif bt in ('ul', 'ol'):
+                para = '. '.join(bc) + '.'
+                transformed.append(('para', para))
+            elif bt == 'para':
+                transformed.append((bt, bc))
+        return self._blocks_to_html(transformed)
+
+    def _format_bullet_list(self, text):
+        blocks = self._parse_to_blocks(text)
+        transformed = []
+        for bt, bc in blocks:
+            if bt == 'heading':
+                transformed.append((bt, bc))
+            elif bt in ('ul', 'ol'):
+                transformed.append(('ul', bc))
+            elif bt == 'para':
+                sents = self._sentences(bc)
+                items = [s for s in sents if s]
+                if items:
+                    transformed.append(('ul', items))
+        return self._blocks_to_html(transformed)
+
+    def _format_numbered_list(self, text):
+        blocks = self._parse_to_blocks(text)
+        transformed = []
+        for bt, bc in blocks:
+            if bt == 'heading':
+                transformed.append((bt, bc))
+            elif bt in ('ul', 'ol'):
+                transformed.append(('ol', bc))
+            elif bt == 'para':
+                sents = self._sentences(bc)
+                items = [s for s in sents if s]
+                if items:
+                    transformed.append(('ol', items))
+        return self._blocks_to_html(transformed)
+
+    def _format_blog_post(self, text):
+        sections = self._detect_sections(text)
+        output_parts = []
+
+        for label, sents in sections:
+            heading = label[0].upper() + label[1:] if label and label != "intro" else ""
+            if not heading:
+                heading = "Introduction"
+            if heading == "Intro":
+                heading = "Introduction"
+
+            if self._is_list_section(sents):
+                output_parts.append(f"<h3>{heading}</h3>")
+                output_parts.append("<ul>")
+                cleaned = []
+                for s in sents:
+                    s_clean = re.sub(r'^[\d\.,\)\-\*\s]+', '', s).strip()
+                    if s_clean:
+                        cleaned.append(s_clean)
+                if not cleaned:
+                    cleaned = sents
+                for item in cleaned:
+                    output_parts.append(f"<li>{item}</li>")
+                output_parts.append("</ul>")
+            else:
+                output_parts.append(f"<h3>{heading}</h3>")
+                para_text = " ".join(sents)
+                output_parts.append(f"<p>{para_text}</p>")
+
+        html = "\n".join(output_parts)
+        return html
+
     def _format_title_case(self, text):
-        sents = self._sentences(text)
+        blocks = self._parse_to_blocks(text)
         minor = {'a', 'an', 'the', 'and', 'but', 'or', 'for', 'nor', 'on', 'at', 'to', 'by', 'with', 'in', 'of', 'is', 'as'}
-        out = []
-        for s in sents:
-            words = s.split()
-            titled = []
-            for i, w in enumerate(words):
-                clean = w.strip(".,!?;:'\"()[]{}")
-                punct = w[len(clean):] if len(clean) < len(w) else ""
-                if i == 0 or i == len(words) - 1 or clean.lower() not in minor:
-                    titled.append(clean[0].upper() + clean[1:] + punct)
-                else:
-                    titled.append(clean.lower() + punct)
-            out.append(' '.join(titled))
-        return '\n\n'.join(f'<p>{s}</p>' for s in out)
+        transformed = []
+        for bt, bc in blocks:
+            if bt == 'heading':
+                transformed.append((bt, self._title_case_str(bc, minor)))
+            elif bt in ('ul', 'ol'):
+                transformed.append((bt, [self._title_case_str(item, minor) for item in bc]))
+            elif bt == 'para':
+                transformed.append((bt, self._title_case_str(bc, minor)))
+        return self._blocks_to_html(transformed)
+
+    def _title_case_str(self, text, minor):
+        words = text.split()
+        titled = []
+        for i, w in enumerate(words):
+            clean = w.strip(".,!?;:'\"()[]{}")
+            punct = w[len(clean):] if len(clean) < len(w) else ""
+            if i == 0 or i == len(words) - 1 or clean.lower() not in minor:
+                titled.append(clean[0].upper() + clean[1:] + punct)
+            else:
+                titled.append(clean.lower() + punct)
+        return ' '.join(titled)
 
     def _format_sentence_case(self, text):
-        sents = self._sentences(text)
-        out = []
-        for s in sents:
-            s = s.strip()
-            if s:
-                s = s[0].upper() + s[1:]
-            out.append(s)
-        return '\n\n'.join(f'<p>{s}</p>' for s in out)
+        blocks = self._parse_to_blocks(text)
+        transformed = []
+        for bt, bc in blocks:
+            if bt == 'heading':
+                transformed.append((bt, bc[0].upper() + bc[1:] if bc else bc))
+            elif bt in ('ul', 'ol'):
+                items = []
+                for item in bc:
+                    s = item.strip()
+                    items.append(s[0].upper() + s[1:] if s else s)
+                transformed.append((bt, items))
+            elif bt == 'para':
+                sents = self._sentences(bc)
+                out = []
+                for s in sents:
+                    s = s.strip()
+                    if s:
+                        s = s[0].upper() + s[1:]
+                    out.append(s)
+                transformed.append(('para', ' '.join(out)))
+        return self._blocks_to_html(transformed)
 
     def _format_code_block(self, text):
         escaped = text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
         return f'<pre><code>{escaped}</code></pre>'
 
     def _format_remove_whitespace(self, text):
-        lines = [l.strip() for l in text.split('\n') if l.strip()]
-        paras = []
-        current = []
-        for l in lines:
-            if l == '':
-                if current:
-                    paras.append(' '.join(current))
-                    current = []
-            else:
-                current.append(l)
-        if current:
-            paras.append(' '.join(current))
-        if not paras:
-            paras = [' '.join(lines)]
-        return '\n\n'.join(f'<p>{p}</p>' for p in paras)
+        import re
+        lines = re.sub(r'[ \t]+', ' ', text).strip().split('\n')
+        lines = [l.strip() for l in lines if l.strip()]
+        if not lines:
+            lines = ['']
+        return '\n\n'.join(f'<p>{l}</p>' for l in lines)
 
     def _format_uppercase(self, text):
         return f'<p style="text-transform:uppercase;">{text.upper()}</p>'

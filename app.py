@@ -251,6 +251,15 @@ def format_text():
     result = text_formatter.format(text, format_type)
     return jsonify(result)
 
+@app.route('/api/format/detect', methods=['POST'])
+def detect_format():
+    data = request.get_json()
+    text = data.get('text', '').strip()
+    if not text:
+        return jsonify({'detected_structure': {'type': 'empty', 'label': 'Empty text'}})
+    detected = text_formatter._detect_input_structure(text)
+    return jsonify({'detected_structure': detected})
+
 @app.route('/api/batch', methods=['POST'])
 def batch_process():
     data = request.get_json()

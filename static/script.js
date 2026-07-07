@@ -5,6 +5,7 @@ const loaderText = document.getElementById('loader-text');
 const loaderSub = document.getElementById('loader-sub');
 let loadingInterval = null;
 let analysisHistory = JSON.parse(localStorage.getItem('plagiashield_history') || '[]');
+let formatDetectTimeout = null;
 
 const loadingMessages = [
     { text: 'Analyzing text...', sub: 'Running AI detection' },
@@ -14,8 +15,8 @@ const loadingMessages = [
     { text: 'Refining results...', sub: 'Generating suggestions' },
 ];
 
-textInput.addEventListener('input', () => { updateWordCount(); updateProgressBar(); autoResizeTextarea(); });
-textInput.addEventListener('paste', () => setTimeout(() => { updateWordCount(); updateProgressBar(); autoResizeTextarea(); }, 50));
+textInput.addEventListener('input', () => { updateWordCount(); updateProgressBar(); autoResizeTextarea(); scheduleFormatDetect(); });
+textInput.addEventListener('paste', () => setTimeout(() => { updateWordCount(); updateProgressBar(); autoResizeTextarea(); scheduleFormatDetect(); }, 50));
 
 function autoResizeTextarea() {
     textInput.style.height = 'auto';
@@ -222,6 +223,7 @@ function switchTab(tabId) {
     tab.classList.add('active');
     document.getElementById(`tab-${tabId}`).style.display = 'block';
     updateTabIndicator(tab);
+    if (tabId === 'format') scheduleFormatDetect();
 }
 
 function addRippleEffect(e) {
@@ -425,6 +427,26 @@ async function runGrammar() {
     } catch (err) { hideLoading(); alert(err.message); }
 }
 
+function scheduleFormatDetect() {
+    if (formatDetectTimeout) clearTimeout(formatDetectTimeout);
+    const tab = document.getElementById('tab-format');
+    if (!tab || tab.style.display === 'none') return;
+    formatDetectTimeout = setTimeout(autoDetectFormat, 400);
+}
+
+async function autoDetectFormat() {
+    const text = getText();
+    const badge = document.getElementById('format-detect-badge');
+    if (!badge) return;
+    if (!text) { badge.innerHTML = ''; return; }
+    try {
+        const resp = await apiCall('/api/format/detect', { text });
+        const d = resp.detected_structure;
+        if (d.type === 'empty') { badge.innerHTML = ''; return; }
+        badge.innerHTML = `<i class="fas fa-list-tree"></i> ${escapeHtml(d.label)}`;
+    } catch (e) { /* silent */ }
+}
+
 async function runFormat(formatType) {
     const text = getText();
     if (!text) return;
@@ -447,13 +469,19 @@ function openEditor() {
 function renderFormatResults(result) {
     const area = document.getElementById('format-results-area');
     if (!area) return;
+    const detected = result.detected_structure;
+    const badgeHtml = detected && detected.type !== 'empty'
+        ? `<div class="structure-badge"><i class="fas fa-list-tree"></i> Detected: ${escapeHtml(detected.label)}</div>`
+        : '';
+    const typeLabel = result.format_type.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
     area.innerHTML = `
         <div class="result-card">
             <h4>Original Text (${result.word_count_original} words)</h4>
+            ${badgeHtml}
             <div class="output-text diff-original">${escapeHtml(result.original)}</div>
         </div>
         <div class="result-card">
-            <h4>Formatted &mdash; ${result.format_type.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())} (${result.word_count_new} words)</h4>
+            <h4>Formatted &mdash; ${typeLabel} (${result.word_count_new} words)</h4>
             <div class="output-text diff-corrected formatted-output">${result.formatted}</div>
             <div class="action-btns">
                 <button class="copy-btn" onclick="copyFormatted(this)"><i class="fas fa-copy"></i> Copy HTML</button>
