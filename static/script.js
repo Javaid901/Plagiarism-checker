@@ -1,13 +1,20 @@
-const textInput = document.getElementById('text-input');
-const wordCount = document.getElementById('word-count');
-const loadingOverlay = document.getElementById('loading-overlay');
-const loaderText = document.getElementById('loader-text');
-const loaderSub = document.getElementById('loader-sub');
+let textInput, wordCount, loadingOverlay, loaderText, loaderSub;
 let loadingInterval = null;
-let analysisHistory = JSON.parse(localStorage.getItem('plagiashield_history') || '[]');
+let analysisHistory = [];
 let formatDetectTimeout = null;
 let lastDetectedFormat = null;
 let lastInputText = '';
+
+try {
+    textInput = document.getElementById('text-input');
+    wordCount = document.getElementById('word-count');
+    loadingOverlay = document.getElementById('loading-overlay');
+    loaderText = document.getElementById('loader-text');
+    loaderSub = document.getElementById('loader-sub');
+    analysisHistory = JSON.parse(localStorage.getItem('plagiashield_history') || '[]');
+} catch (e) {
+    console.warn('PlagiaShield init error:', e);
+}
 
 const loadingMessages = [
     { text: 'Analyzing text...', sub: 'Running AI detection' },
@@ -36,11 +43,11 @@ function updateWordCount() {
 
 function showLoading() {
     loadingOverlay.style.display = 'flex';
-    // Safety timeout: auto-hide after 30s
     if (window._loadingSafetyTimer) clearTimeout(window._loadingSafetyTimer);
     window._loadingSafetyTimer = setTimeout(() => {
         hideLoading();
-    }, 30000);
+        showToast('Operation timed out. Check console for details.', 'error', 5000);
+    }, 15000);
     let idx = 0;
     if (loaderText && loaderSub) {
         loaderText.textContent = loadingMessages[0].text;
@@ -288,13 +295,17 @@ function hideAllResults() {
 }
 
 function getText() {
+    if (!textInput) {
+        showToast('Text editor not found. Try reloading the page.', 'error', 5000);
+        return null;
+    }
     const text = textInput.value.trim();
     if (!text) {
-        alert('Please enter some text first.');
+        showToast('Please enter some text first.', 'error', 3000);
         return null;
     }
     if (text.split(/\s+/).length < 3) {
-        alert('Please enter at least 3 words.');
+        showToast('Please enter at least 3 words.', 'error', 3000);
         return null;
     }
     return text;
@@ -360,7 +371,7 @@ async function runAllChecks() {
         }, 150);
     } catch (err) {
         hideLoading();
-        alert('Error: ' + err.message);
+        showToast('Error: ' + err.message, 'error', 5000);
     }
 }
 
@@ -374,7 +385,7 @@ async function runBypass() {
         document.getElementById('quick-stats').style.display = 'grid';
         hideLoading();
         switchTab('bypass');
-    } catch (err) { hideLoading(); alert(err.message); }
+    } catch (err) { hideLoading(); showToast(err.message, 'error', 5000); }
 }
 
 async function runAIDetect() {
@@ -388,7 +399,7 @@ async function runAIDetect() {
         document.getElementById('stat-ai').querySelector('.stat-value').textContent = `${result.score}%`;
         hideLoading();
         switchTab('ai-detect');
-    } catch (err) { hideLoading(); alert(err.message); }
+    } catch (err) { hideLoading(); showToast(err.message, 'error', 5000); }
 }
 
 async function runPlagiarism() {
@@ -402,7 +413,7 @@ async function runPlagiarism() {
         document.getElementById('stat-plagiarism').querySelector('.stat-value').textContent = `${result.score}%`;
         hideLoading();
         switchTab('plagiarism');
-    } catch (err) { hideLoading(); alert(err.message); }
+    } catch (err) { hideLoading(); showToast(err.message, 'error', 5000); }
 }
 
 async function runParaphrase() {
@@ -415,7 +426,7 @@ async function runParaphrase() {
         renderParaphraseResults(result);
         hideLoading();
         switchTab('paraphrase');
-    } catch (err) { hideLoading(); alert(err.message); }
+    } catch (err) { hideLoading(); showToast(err.message, 'error', 5000); }
 }
 
 async function runHumanize() {
@@ -427,7 +438,7 @@ async function runHumanize() {
         renderHumanizeResults(result);
         hideLoading();
         switchTab('humanize');
-    } catch (err) { hideLoading(); alert(err.message); }
+    } catch (err) { hideLoading(); showToast(err.message, 'error', 5000); }
 }
 
 async function runGrammar() {
@@ -441,7 +452,7 @@ async function runGrammar() {
         document.getElementById('stat-grammar').querySelector('.stat-value').textContent = `${result.score}%`;
         hideLoading();
         switchTab('grammar');
-    } catch (err) { hideLoading(); alert(err.message); }
+    } catch (err) { hideLoading(); showToast(err.message, 'error', 5000); }
 }
 
 function scheduleFormatDetect() {
@@ -474,7 +485,7 @@ async function runFormat(formatType) {
         const result = await apiCall('/api/format', { text, format_type: formatType });
         renderFormatResults(result);
         hideLoading();
-    } catch (err) { hideLoading(); alert(err.message); }
+    } catch (err) { hideLoading(); showToast(err.message, 'error', 5000); }
 }
 
 function openEditor() {
@@ -525,7 +536,7 @@ async function restoreFormatFromResult(btn) {
         renderFormatResults(result);
         switchTab('format');
         showToast('Format restored from detected structure', 'success');
-    } catch (err) { hideLoading(); alert(err.message); }
+    } catch (err) { hideLoading(); showToast(err.message, 'error', 5000); }
 }
 
 function copyFormatted(btn) {
@@ -695,8 +706,6 @@ function renderParaphraseResults(result) {
 }
 
 function renderHumanizeResults(result) {
-
-function renderHumanizeResults(result) {
     const tab = document.getElementById('tab-humanize');
     tab.innerHTML = `
         <div class="result-card">
@@ -719,8 +728,6 @@ function renderHumanizeResults(result) {
         </div>
     `;
 }
-
-function renderBypassResults(result) {
 
 function renderBypassResults(result) {
     const tab = document.getElementById('tab-bypass');

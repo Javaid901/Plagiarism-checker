@@ -7,6 +7,23 @@ from .lexical_similarity import LexicalSimilarity
 from .embedding_cache import EmbeddingCache
 
 
+_has_internet = None
+
+def _check_connectivity():
+    global _has_internet
+    if _has_internet is not None:
+        return _has_internet
+    try:
+        import socket
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(2)
+        s.connect(("8.8.8.8", 53))
+        s.close()
+        _has_internet = True
+    except Exception:
+        _has_internet = False
+    return _has_internet
+
 class SemanticPlagiarismDetector:
     def __init__(self):
         self.semantic = SemanticSimilarity()
@@ -118,19 +135,16 @@ class SemanticPlagiarismDetector:
         return result
 
     def _search_sentence_online(self, sentence, words, embedding=None):
+        if not _check_connectivity():
+            return self._local_result()
 
         try:
-
             query = quote(sentence[:200])
-
-            headers = {
-                "User-Agent": "Mozilla/5.0"
-            }
-
+            headers = {"User-Agent": "Mozilla/5.0"}
             response = requests.get(
                 f"https://html.duckduckgo.com/html/?q={query}",
                 headers=headers,
-                timeout=8
+                timeout=5
             )
 
             if response.status_code != 200:
