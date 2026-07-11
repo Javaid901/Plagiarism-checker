@@ -1412,6 +1412,7 @@ body::after {
     z-index: 1000;
     backdrop-filter: blur(16px);
     animation: fadeIn 0.3s ease-out;
+    pointer-events: none;
 }
 
 .loading-overlay::before {

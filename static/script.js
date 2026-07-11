@@ -36,6 +36,11 @@ function updateWordCount() {
 
 function showLoading() {
     loadingOverlay.style.display = 'flex';
+    // Safety timeout: auto-hide after 30s
+    if (window._loadingSafetyTimer) clearTimeout(window._loadingSafetyTimer);
+    window._loadingSafetyTimer = setTimeout(() => {
+        hideLoading();
+    }, 30000);
     let idx = 0;
     if (loaderText && loaderSub) {
         loaderText.textContent = loadingMessages[0].text;
@@ -55,6 +60,10 @@ function showLoading() {
 }
 function hideLoading() {
     loadingOverlay.style.display = 'none';
+    if (window._loadingSafetyTimer) {
+        clearTimeout(window._loadingSafetyTimer);
+        window._loadingSafetyTimer = null;
+    }
     if (loadingInterval) {
         clearInterval(loadingInterval);
         loadingInterval = null;
@@ -470,9 +479,7 @@ async function runFormat(formatType) {
 
 function openEditor() {
     const text = textInput.value.trim();
-    if (text) {
-        localStorage.setItem('plagiashield_editor_text', text);
-    }
+    localStorage.setItem('plagiashield_editor_text', text || '');
     window.location.href = '/editor';
 }
 

@@ -194,9 +194,9 @@ function clearEditor() {
 }
 
 function goBack() {
-    // Save formatted content back to main page
-    const html = editor.innerHTML;
-    localStorage.setItem('plagiashield_editor_text', html);
+    // Save plain text back to main page
+    const text = editor.innerText || '';
+    localStorage.setItem('plagiashield_editor_text', text);
     window.location.href = '/';
 }
 
