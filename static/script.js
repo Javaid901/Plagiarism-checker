@@ -6,6 +6,8 @@ const loaderSub = document.getElementById('loader-sub');
 let loadingInterval = null;
 let analysisHistory = JSON.parse(localStorage.getItem('plagiashield_history') || '[]');
 let formatDetectTimeout = null;
+let lastDetectedFormat = null;
+let lastInputText = '';
 
 const loadingMessages = [
     { text: 'Analyzing text...', sub: 'Running AI detection' },
@@ -362,6 +364,7 @@ async function runBypass() {
         renderBypassResults(result);
         document.getElementById('quick-stats').style.display = 'grid';
         hideLoading();
+        switchTab('bypass');
     } catch (err) { hideLoading(); alert(err.message); }
 }
 
@@ -375,6 +378,7 @@ async function runAIDetect() {
         document.getElementById('quick-stats').style.display = 'grid';
         document.getElementById('stat-ai').querySelector('.stat-value').textContent = `${result.score}%`;
         hideLoading();
+        switchTab('ai-detect');
     } catch (err) { hideLoading(); alert(err.message); }
 }
 
@@ -388,6 +392,7 @@ async function runPlagiarism() {
         document.getElementById('quick-stats').style.display = 'grid';
         document.getElementById('stat-plagiarism').querySelector('.stat-value').textContent = `${result.score}%`;
         hideLoading();
+        switchTab('plagiarism');
     } catch (err) { hideLoading(); alert(err.message); }
 }
 
@@ -400,6 +405,7 @@ async function runParaphrase() {
         const result = await apiCall('/api/paraphrase', { text, intensity });
         renderParaphraseResults(result);
         hideLoading();
+        switchTab('paraphrase');
     } catch (err) { hideLoading(); alert(err.message); }
 }
 
@@ -411,6 +417,7 @@ async function runHumanize() {
         const result = await apiCall('/api/humanize', { text });
         renderHumanizeResults(result);
         hideLoading();
+        switchTab('humanize');
     } catch (err) { hideLoading(); alert(err.message); }
 }
 
@@ -424,6 +431,7 @@ async function runGrammar() {
         document.getElementById('quick-stats').style.display = 'grid';
         document.getElementById('stat-grammar').querySelector('.stat-value').textContent = `${result.score}%`;
         hideLoading();
+        switchTab('grammar');
     } catch (err) { hideLoading(); alert(err.message); }
 }
 
@@ -442,6 +450,8 @@ async function autoDetectFormat() {
     try {
         const resp = await apiCall('/api/format/detect', { text });
         const d = resp.detected_structure;
+        lastInputText = text;
+        lastDetectedFormat = d;
         if (d.type === 'empty') { badge.innerHTML = ''; return; }
         badge.innerHTML = `<i class="fas fa-list-tree"></i> ${escapeHtml(d.label)}`;
     } catch (e) { /* silent */ }
@@ -489,6 +499,26 @@ function renderFormatResults(result) {
             </div>
         </div>
     `;
+}
+
+function formatRestoreBtn() {
+    if (!lastDetectedFormat || lastDetectedFormat.type === 'empty') return '';
+    return `<button class="btn btn-secondary btn-small restore-format-btn" onclick="restoreFormatFromResult(this)" style="margin-left:4px;"><i class="fas fa-wand-magic-sparkles"></i> Re-apply Format</button>`;
+}
+
+async function restoreFormatFromResult(btn) {
+    const card = btn.closest('.result-card');
+    const textEl = card ? card.querySelector('.output-text.diff-corrected, .output-text:last-child') : null;
+    const text = textEl ? (textEl.textContent || textEl.innerText) : '';
+    if (!text) { showToast('No text found to format', 'error'); return; }
+    showLoading();
+    try {
+        const result = await apiCall('/api/format', { text, format_type: 'auto' });
+        hideLoading();
+        renderFormatResults(result);
+        switchTab('format');
+        showToast('Format restored from detected structure', 'success');
+    } catch (err) { hideLoading(); alert(err.message); }
 }
 
 function copyFormatted(btn) {
@@ -651,10 +681,13 @@ function renderParaphraseResults(result) {
             <div class="action-btns" style="margin-top:12px;">
                 <button class="copy-btn" onclick="copySplitRight(this)"><i class="fas fa-copy"></i> Copy Paraphrased</button>
                 <button class="btn btn-secondary btn-small" onclick="exportResult('${escapeHtml(result.paraphrased)}', 'paraphrased')"><i class="fas fa-download"></i> Export</button>
+                ${formatRestoreBtn()}
             </div>
         </div>
     `;
 }
+
+function renderHumanizeResults(result) {
 
 function renderHumanizeResults(result) {
     const tab = document.getElementById('tab-humanize');
@@ -674,10 +707,13 @@ function renderHumanizeResults(result) {
             <div class="action-btns" style="margin-top:12px;">
                 <button class="copy-btn" onclick="copySplitRight(this)"><i class="fas fa-copy"></i> Copy Humanized</button>
                 <button class="btn btn-secondary btn-small" onclick="exportResult('${escapeHtml(result.humanized)}', 'humanized')"><i class="fas fa-download"></i> Export</button>
+                ${formatRestoreBtn()}
             </div>
         </div>
     `;
 }
+
+function renderBypassResults(result) {
 
 function renderBypassResults(result) {
     const tab = document.getElementById('tab-bypass');
@@ -722,6 +758,7 @@ function renderBypassResults(result) {
                 <button class="copy-btn" onclick="copySplitRight(this)"><i class="fas fa-copy"></i> Copy Bypassed</button>
                 <button class="btn btn-secondary btn-small" onclick="runGrammarCheckOnBypassed()"><i class="fas fa-spell-check"></i> Check Grammar</button>
                 <button class="btn btn-secondary btn-small" onclick="exportResult('${escapeHtml(result.bypassed)}', 'bypassed')"><i class="fas fa-download"></i> Export</button>
+                ${formatRestoreBtn()}
             </div>
         </div>
     `;
@@ -826,6 +863,7 @@ function renderGrammarResults(result) {
             <div class="action-btns">
                 <button class="btn btn-primary btn-small" onclick="applyAllGrammarFixes()"><i class="fas fa-check-double"></i> Fix All</button>
                 <button class="copy-btn" onclick="copyText(this)"><i class="fas fa-copy"></i> Copy</button>
+                ${formatRestoreBtn()}
             </div>
         </div>
         ` : ''}
@@ -978,6 +1016,7 @@ function runSummarization() {
             <div class="output-text diff-original" style="max-height:200px;overflow-y:auto;">${escapeHtml(text)}</div>
         </div>
     `;
+    switchTab('summary');
     saveToHistory('Summary', summary);
 }
 
@@ -1071,6 +1110,7 @@ function runToneAnalysis() {
             </div>
         </div>
     `;
+    switchTab('tone');
     saveToHistory('Tone Analysis', text.substring(0, 100) + '...');
 }
 
@@ -1099,6 +1139,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // History init
     renderHistory();
+
+    // Load text from editor if coming back
+    const editorText = localStorage.getItem('plagiashield_editor_text');
+    if (editorText) {
+        textInput.value = editorText;
+        localStorage.removeItem('plagiashield_editor_text');
+        updateWordCount();
+        updateProgressBar();
+        autoResizeTextarea();
+        // Trigger format detection if format tab is active
+        const formatTab = document.getElementById('tab-format');
+        if (formatTab && formatTab.style.display !== 'none') {
+            scheduleFormatDetect();
+        }
+    }
 
     updateWordCount();
     updateProgressBar();

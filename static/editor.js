@@ -194,6 +194,9 @@ function clearEditor() {
 }
 
 function goBack() {
+    // Save formatted content back to main page
+    const html = editor.innerHTML;
+    localStorage.setItem('plagiashield_editor_text', html);
     window.location.href = '/';
 }
 
@@ -356,4 +359,69 @@ function showEditorToast(message, type = 'info') {
         toast.classList.add('toast-hide');
         setTimeout(() => toast.remove(), 300);
     }, 3000);
+}
+
+// ===== Format Tools =====
+let editorFormatDetectTimeout = null;
+
+editor.addEventListener('input', () => { updateStats(); scheduleEditorFormatDetect(); });
+editor.addEventListener('keyup', () => { updateStats(); scheduleEditorFormatDetect(); });
+
+function scheduleEditorFormatDetect() {
+    if (editorFormatDetectTimeout) clearTimeout(editorFormatDetectTimeout);
+    editorFormatDetectTimeout = setTimeout(autoDetectEditorFormat, 500);
+}
+
+async function autoDetectEditorFormat() {
+    const text = editor.innerText || '';
+    const badge = document.getElementById('editor-format-detect');
+    if (!badge) return;
+    if (!text.trim()) { badge.innerHTML = ''; return; }
+    try {
+        const resp = await apiCallEditor('/api/format/detect', { text });
+        const d = resp.detected_structure;
+        if (d.type === 'empty') { badge.innerHTML = ''; return; }
+        badge.innerHTML = '<i class="fas fa-list-tree"></i> ' + escapeHtml(d.label);
+    } catch (e) { /* silent */ }
+}
+
+async function editorFormat(formatType) {
+    const text = editor.innerText || '';
+    if (!text.trim()) { showEditorToast('No text to format', 'error'); return; }
+
+    const overlay = document.createElement('div');
+    overlay.className = 'editor-format-overlay';
+    overlay.innerHTML = '<div class="editor-format-spinner"><i class="fas fa-spinner fa-spin"></i> Formatting...</div>';
+    document.body.appendChild(overlay);
+
+    try {
+        const result = await apiCallEditor('/api/format', { text, format_type: formatType });
+        // Replace editor content with formatted HTML
+        editor.innerHTML = result.formatted;
+        updateStats();
+        showEditorToast('Formatted as ' + formatType.replace(/-/g, ' '), 'success');
+        // Re-run detection
+        autoDetectEditorFormat();
+    } catch (err) {
+        showEditorToast('Format error: ' + err.message, 'error');
+    } finally {
+        overlay.remove();
+    }
+}
+
+function apiCallEditor(endpoint, data) {
+    return fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    }).then(r => {
+        if (!r.ok) throw new Error('Request failed: ' + r.status);
+        return r.json();
+    });
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
 }

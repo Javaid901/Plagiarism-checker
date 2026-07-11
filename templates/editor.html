@@ -151,6 +151,26 @@
         <button class="btn btn-secondary" style="padding:4px 8px;font-size:11px;" onclick="toggleFindReplace()"><i class="fas fa-times"></i></button>
     </div>
 
+    <!-- Format Tools Bar (sticky below main toolbar) -->
+    <div class="format-bar" id="format-bar">
+        <div class="format-bar-inner">
+            <span id="editor-format-detect" class="editor-format-detect"></span>
+            <div class="format-bar-divider"></div>
+            <button class="format-bar-btn primary" onclick="editorFormat('auto')" title="Auto-Format"><i class="fas fa-bolt"></i> Auto</button>
+            <button class="format-bar-btn" onclick="editorFormat('paragraphs')" title="Paragraphs"><i class="fas fa-paragraph"></i></button>
+            <button class="format-bar-btn" onclick="editorFormat('bullet-list')" title="Bullet List"><i class="fas fa-list-ul"></i></button>
+            <button class="format-bar-btn" onclick="editorFormat('numbered-list')" title="Numbered List"><i class="fas fa-list-ol"></i></button>
+            <button class="format-bar-btn" onclick="editorFormat('blog-post')" title="Blog Post"><i class="fas fa-newspaper"></i></button>
+            <div class="format-bar-divider"></div>
+            <button class="format-bar-btn" onclick="editorFormat('title-case')" title="Title Case"><i class="fas fa-heading"></i> T</button>
+            <button class="format-bar-btn" onclick="editorFormat('sentence-case')" title="Sentence Case"><i class="fas fa-font"></i> S</button>
+            <button class="format-bar-btn" onclick="editorFormat('uppercase')" title="UPPERCASE"><i class="fas fa-uppercase"></i></button>
+            <button class="format-bar-btn" onclick="editorFormat('lowercase')" title="lowercase"><i class="fas fa-lowercase"></i></button>
+            <button class="format-bar-btn" onclick="editorFormat('remove-whitespace')" title="Clean Spaces"><i class="fas fa-compress-arrows-alt"></i></button>
+            <button class="format-bar-btn" onclick="editorFormat('code-block')" title="Code Block"><i class="fas fa-code"></i></button>
+        </div>
+    </div>
+
     <!-- Editor Area -->
     <div class="editor-container">
         <div class="editor-content" id="editor" contenteditable="true" placeholder="Start typing or paste your text here..."></div>
